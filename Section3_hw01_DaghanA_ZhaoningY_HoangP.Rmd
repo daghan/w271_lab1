@@ -1,6 +1,6 @@
 ---
 title: "W271 Section 3 Lab 1"
-author: 'Daghan Altas, Student #2, Student #3'
+author: "Daghan Altas, Zhaoning Yu, Hoang Phan"
 date: "9/23/2017"
 output: html_document
 ---
