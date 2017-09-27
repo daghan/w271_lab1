@@ -1,0 +1,201 @@
+---
+title: "W271 Section 3 Lab 1"
+author: 'Daghan Altas, Student #2, Student #3'
+date: "9/23/2017"
+output: html_document
+---
+```{r setup, warning=FALSE, echo=FALSE}
+knitr::opts_chunk$set(cache=TRUE)
+```
+
+
+# Problem statement  
+
+In this lab, we are going to model the relationship between age and voters' preference for Bernie Sanders over Hillary Clinton. 
+
+# Dataset 
+The dataset comes from the 2016 American National Election Survey.
+
+```{r warning=FALSE, message=FALSE}
+library(dplyr)
+library(ggplot2)
+library(Hmisc)
+library(GGally)
+
+
+setwd("/Users/daghanaltas/Hacking/Berkeley/W271/Labs/Lab1")
+df <- read.csv("./public_opinion.csv")
+head(df)
+describe(df)
+
+```   
+## Description of the data   
+The dataset contains 5 variables with 1200 samples:
+
+* **sanders_preference**: A categorical variable with 2 levels, denoting whether the voter prefers Bernie Sanders (=1) or Hillary Clinton (=0).
+* **party**: A categorical variable with 3 levels, denoting whether the voter prefers is affiliated with the Democratic Party (=1), Independent (=2), or Republican Party (=3).  
+* **race_white**: A categorical variable with 2 levels, denoting wheter the voter is White (=1), or not (=0).  
+* **gender**: A categorical variable with 2 levels, denoting whether the voter is male (=1), or female (=2).  
+* **birthyr**: A numerical variable, denoting the birthyear of the voter. 
+
+## Observations: 
+* There are 9 missing values (NAs) for the **sanders_preference** variable.  
+* There is no direct **age** variable. We'll derive it from the **birthyr** variable.
+* None of the other variables have missing values. 
+
+## Clean-up  
+* We are going to create a new variable, **age** based on the **birthyr** variable through the following formula: $$age = 2016 - birthyr$$ We will use 2016, as the data was collected in 2016, since we are interested in the age of the voters **_when_** the data was collected.  
+* We are going to remove the 9 observations without the **sanders_preference** value. A possible way to impute these **NA** values could be to use a logistic regression but for this work, we'll simply opt to remove these observations (9 out of 1200 observations is less than 1% of the data).
+* We'll convert all categorical variables to R factor variables. 
+
+
+```{r}
+dim(df)
+df <- df[!is.na(df$sanders_preference),]
+df$sanders_preference <- as.factor(df$sanders_preference)
+df$party <- factor(x = df$party, levels = c("1","2","3"), labels = c("D", "I", "R"))
+df$race_white <- as.factor(df$race_white)
+df$gender <- as.factor(df$gender)
+df$age <- 2016 - df$birthyr
+dim(df)
+head(df)
+```   
+
+# Explotary Data Analysis
+##Univariate analysis    
+### Sanders vs. Hillary Preference
+```{r}
+#xtabs( ~ sanders_preference, data=df)
+c.table <- array(data = c( sum(df$sanders_preference == 1), 
+                           sum(df$sanders_preference == 1) / length(df$sanders_preference),
+                           sum(df$sanders_preference == 0),
+                           sum(df$sanders_preference == 0) / length(df$sanders_preference),
+                           sum((df$sanders_preference == 0) | (df$sanders_preference == 1)), 
+                           sum((df$sanders_preference == 0) | (df$sanders_preference == 1)) / length(df$sanders_preference)),
+                 dim = c(2,3),
+                 dimnames = list(Count = c("Voter Count", "pi.hat"), 
+                                 Preference = c("Bernie", "Hillary", "Total")))
+
+c.table
+```    
+In this survey, 58% of voters prefer Hillary over Bernie. While there is a larger than expected Bernie preference (since Hillary Clinton won the Democratic nomiation, one would expect to see a higher ratio for Clinton than Bernie), there isn't a substantial tilt in one direction or the other. One possible explanation is that Bernie is more popular among the Independents and Republicans. So we are going to assume that this sample does not exhibit a meaningful selection bias (sample set is random).
+
+### Party affiliations
+```{r}
+c.table <- array(data = c( sum(df$party == 'D'), 
+                           sum(df$party == 'D')/length(df$party),
+                           sum(df$party == 'I'), 
+                           sum(df$party == 'I')/length(df$party), 
+                           sum(df$party == 'R'), 
+                           sum(df$party == 'R')/length(df$party),
+                           sum((df$party == 'D') | (df$party == 'I') |(df$party == 'R')), 
+                           sum((df$party == 'D') | (df$party == 'I') |(df$party == 'R')) /length(df$party)),
+                 dim = c(2,4),
+                 dimnames = list(Count = c("Voter Count", "pi.hat"), 
+                                 Party_affiliation = c("Democrat", "Independent", "Republican", "Total")))
+
+round(c.table,2)
+```    
+We observe that 38% of the voters in the dataset are affiliated with the Democratic Party, whereas only 23% are affiliated with the Republican Party. The 0.6  Democratic to Republican ratio is noteworthy. The data appears to be skewed towards Democratic voters (perhaps a specific region of the country). Our model may not be applicable to the entire country. A further analysis of how the dataset was sampled from the entire population would be very useful.
+
+### Race
+```{r}
+c.table <- array(data = c( sum(df$race_white == 1), 
+                           sum(df$race_white == 1)/length(df$race_white),
+                           sum(df$race_white == 0), 
+                           sum(df$race_white == 0)/length(df$race_white), 
+                           sum((df$race_white == 1) | (df$race_white == 0)), 
+                           sum((df$race_white == 1) | (df$race_white == 0)) /length(df$race_white)),
+                 dim = c(2,3),
+                 dimnames = list(Count = c("Voter Count", "pi.hat"), 
+                                 Race = c("White", "Non White", "Total")))
+
+round(c.table,2)
+```    
+The 73% white / non-white ratio is inline with the overall US population (according to the 2016 US Census, whites made up 72.4% of the population). The dataset does not appear to have a selection bias with respect to the voter race
+
+### Gender
+```{r}
+c.table <- array(data = c( sum(df$gender == 1), 
+                           sum(df$gender == 1)/length(df$gender),
+                           sum(df$gender == 2), 
+                           sum(df$gender == 2)/length(df$gender), 
+                           sum((df$gender == 1) | (df$gender == 2)), 
+                           sum((df$gender == 1) | (df$gender == 2)) /length(df$gender)),
+                 dim = c(2,3),
+                 dimnames = list(Count = c("Voter Count", "pi.hat"), 
+                                 Gender = c("Male", "Female", "Total")))
+
+round(c.table,2)
+```
+The female / male ration is 1.10 on the dataset and the population ratio (according to Wikipedia) is 1.05. So the sample data doesn't appear to have a meaningful skew.
+
+### Age
+```{r}
+ggplot(df, aes(age)) +
+  geom_histogram(binwidth = 1, fill = 'magenta')
+
+c.table <- array(data = c(range(df$age)),
+                 dim = c(1,2),
+                 dimnames = list(c("Voter Age"), 
+                                 c("Youngest", "Oldest")))
+round(c.table,2)
+```
+We observe that age data for the voters in the survey is within the norms (i.e, there is no one below 18) an as expected, as the age variable moves beyond 70, there is a rapid decline. However there are a few points that are worth mentioning:  
+
+* There is no one at 18 years old bin. This definitely requires some further explanation. We'll note in our final model / conclusion that younger voters are potentially underrepresented in the data.    
+* The data appears to be tri-model. There is not an obvious explanation for that either. This may point to a selection bias (i.e, the sample isn't trully random). We'll note the shortcoming in our final analysis as a caution.
+
+
+# Multivariate analysis
+## preference vs. party
+```{r}
+c.tabs <- xtabs( ~ sanders_preference + party , data = df)
+c.tabs <- rbind(c.tabs,colSums(c.tabs))
+c.tabs <- cbind(c.tabs,rowSums(c.tabs))
+
+c.table <- array(data = as.array(c.tabs),
+      dim = c(3,4),
+      dimnames = list(Preference = c("Hillary", "Bernie", "Total"), 
+                      Party = c("Democratic", "Independent", "Republican", "Total")))
+
+round(c.table, 2)
+round(c.table / dim(df)[1], 2)
+
+```
+We have further proof that Bernie is popular with the wrong group (i.e, Independents and Republicans), which is a point we touched on the univariate analysis section for the preference variable. While he enjoys roughly 2x the popularity of Hillary Clinton among the Independents and Republicans, he is less popular among the Democrats. **Our intuition is to include Independents to the target audience** as their lack of enthousiasm for the Democratic party may be offset by their support for Bernie.
+
+## preference vs. race_white
+```{r}
+c.tabs <- xtabs( ~ sanders_preference + race_white , data = df)
+c.tabs <- rbind(c.tabs,colSums(c.tabs))
+c.tabs <- cbind(c.tabs,rowSums(c.tabs))
+
+c.table <- array(data = as.array(c.tabs),
+      dim = c(3,3),
+      dimnames = list(Preference = c("Hillary", "Bernie", "Total"), 
+                      Party = c("Whites", "Non Whites", "Total")))
+
+round(c.table, 2)
+round(c.table / dim(df)[1], 2)
+```
+Bernie enjoys 4 times more support from Non White voters than White voters. This is definitely a strong signal for our model, so we will explore adding race as a dependent variable to our model.
+
+
+## preference ~ gender
+## preference ~ age (boxplot of age factored by preference)
+
+## age ~ party
+## age ~ race_white
+## age ~ gender
+
+# Interactions
+???? intiuition
+preference ~ age & gender
+preference ~ age & race_white
+preference ~ age & party
+
+
+
+
+```
