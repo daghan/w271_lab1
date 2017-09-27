@@ -25,9 +25,9 @@ library(data.table)
 
 
 setwd("/Users/daghanaltas/Hacking/Berkeley/W271/Labs/Lab1")
-dt <- read.csv("./public_opinion.csv")
-head(dt)
-describe(dt)
+df <- read.csv("./public_opinion.csv")
+head(df)
+describe(df)
 
 ```   
 ## Description of the data   
@@ -55,16 +55,16 @@ The dataset contains 5 variables with 1200 samples:
 
 
 ```{r}
-dim(dt)
-dt <- dt[!is.na(dt$sanders_preference),]
-dt$sanders_preference <- as.factor(dt$sanders_preference)
-dt$party <- factor(x = dt$party, levels = c("1","2","3"), labels = c("D", "I", "R"))
-dt$race_white <- as.factor(dt$race_white)
-dt$gender <- as.factor(dt$gender)
-dt$age <- 2016 - dt$birthyr
-dim(dt)
-head(dt)
-dt <- data.table(dt)
+dim(df)
+df <- df[!is.na(df$sanders_preference),]
+df$sanders_preference <- as.factor(df$sanders_preference)
+df$party <- factor(x = df$party, levels = c("1","2","3"), labels = c("D", "I", "R"))
+df$race_white <- as.factor(df$race_white)
+df$gender <- as.factor(df$gender)
+df$age <- 2016 - df$birthyr
+dim(df)
+head(df)
+dt <- data.table(df)
 ```   
 
 # Explotary Data Analysis
