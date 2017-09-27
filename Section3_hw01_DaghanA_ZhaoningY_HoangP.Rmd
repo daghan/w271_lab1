@@ -61,7 +61,7 @@ df$sanders_preference <- as.factor(df$sanders_preference)
 df$party <- factor(x = df$party, levels = c("1","2","3"), labels = c("D", "I", "R"))
 df$race_white <- as.factor(df$race_white)
 df$gender <- as.factor(df$gender)
-df$age <- 2016 - df$birthyr
+df$age <- 2015 - df$birthyr
 dim(df)
 head(df)
 dt <- data.table(df)
@@ -136,11 +136,6 @@ round(c.table,2)
 ```
 The female / male ration is 1.10 on the dataset and the population ratio (according to Wikipedia) is 1.05. So the sample data doesn't appear to have a meaningful skew.
 
-# UPDATE =====================
-# Daghan will update age
-# UPDATE =====================
-
-
 ### Age
 ```{r}
 ggplot(dt, aes(age)) +
@@ -154,7 +149,6 @@ round(c.table,2)
 ```
 We observe that age data for the voters in the survey is within the norms (i.e, there is no one below 18) an as expected, as the age variable moves beyond 70, there is a rapid decline. However there are a few points that are worth mentioning:  
 
-* There is no one at 18 years old bin. This definitely requires some further explanation. We'll note in our final model / conclusion that younger voters are potentially underrepresented in the data.    
 * The data appears to be tri-model. There is not an obvious explanation for that either. This may point to a selection bias (i.e, the sample isn't trully random). We'll note the shortcoming in our final analysis as a caution.
 
 
