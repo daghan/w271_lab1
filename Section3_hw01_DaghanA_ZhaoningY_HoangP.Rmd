@@ -21,12 +21,13 @@ library(dplyr)
 library(ggplot2)
 library(Hmisc)
 library(GGally)
+library(data.table)
 
 
 setwd("/Users/daghanaltas/Hacking/Berkeley/W271/Labs/Lab1")
-df <- read.csv("./public_opinion.csv")
-head(df)
-describe(df)
+dt <- read.csv("./public_opinion.csv")
+head(dt)
+describe(dt)
 
 ```   
 ## Description of the data   
@@ -48,30 +49,35 @@ The dataset contains 5 variables with 1200 samples:
 * We are going to remove the 9 observations without the **sanders_preference** value. A possible way to impute these **NA** values could be to use a logistic regression but for this work, we'll simply opt to remove these observations (9 out of 1200 observations is less than 1% of the data).
 * We'll convert all categorical variables to R factor variables. 
 
+# UPDATE =====================
+# Hoang will update it
+# UPDATE =====================
+
 
 ```{r}
-dim(df)
-df <- df[!is.na(df$sanders_preference),]
-df$sanders_preference <- as.factor(df$sanders_preference)
-df$party <- factor(x = df$party, levels = c("1","2","3"), labels = c("D", "I", "R"))
-df$race_white <- as.factor(df$race_white)
-df$gender <- as.factor(df$gender)
-df$age <- 2016 - df$birthyr
-dim(df)
-head(df)
+dim(dt)
+dt <- dt[!is.na(dt$sanders_preference),]
+dt$sanders_preference <- as.factor(dt$sanders_preference)
+dt$party <- factor(x = dt$party, levels = c("1","2","3"), labels = c("D", "I", "R"))
+dt$race_white <- as.factor(dt$race_white)
+dt$gender <- as.factor(dt$gender)
+dt$age <- 2016 - dt$birthyr
+dim(dt)
+head(dt)
+dt <- data.table(dt)
 ```   
 
 # Explotary Data Analysis
 ##Univariate analysis    
 ### Sanders vs. Hillary Preference
 ```{r}
-#xtabs( ~ sanders_preference, data=df)
-c.table <- array(data = c( sum(df$sanders_preference == 1), 
-                           sum(df$sanders_preference == 1) / length(df$sanders_preference),
-                           sum(df$sanders_preference == 0),
-                           sum(df$sanders_preference == 0) / length(df$sanders_preference),
-                           sum((df$sanders_preference == 0) | (df$sanders_preference == 1)), 
-                           sum((df$sanders_preference == 0) | (df$sanders_preference == 1)) / length(df$sanders_preference)),
+#xtabs( ~ sanders_preference, data=dt)
+c.table <- array(data = c( sum(dt$sanders_preference == 1), 
+                           sum(dt$sanders_preference == 1) / length(dt$sanders_preference),
+                           sum(dt$sanders_preference == 0),
+                           sum(dt$sanders_preference == 0) / length(dt$sanders_preference),
+                           sum((dt$sanders_preference == 0) | (dt$sanders_preference == 1)), 
+                           sum((dt$sanders_preference == 0) | (dt$sanders_preference == 1)) / length(dt$sanders_preference)),
                  dim = c(2,3),
                  dimnames = list(Count = c("Voter Count", "pi.hat"), 
                                  Preference = c("Bernie", "Hillary", "Total")))
@@ -82,14 +88,14 @@ In this survey, 58% of voters prefer Hillary over Bernie. While there is a large
 
 ### Party affiliations
 ```{r}
-c.table <- array(data = c( sum(df$party == 'D'), 
-                           sum(df$party == 'D')/length(df$party),
-                           sum(df$party == 'I'), 
-                           sum(df$party == 'I')/length(df$party), 
-                           sum(df$party == 'R'), 
-                           sum(df$party == 'R')/length(df$party),
-                           sum((df$party == 'D') | (df$party == 'I') |(df$party == 'R')), 
-                           sum((df$party == 'D') | (df$party == 'I') |(df$party == 'R')) /length(df$party)),
+c.table <- array(data = c( sum(dt$party == 'D'), 
+                           sum(dt$party == 'D')/length(dt$party),
+                           sum(dt$party == 'I'), 
+                           sum(dt$party == 'I')/length(dt$party), 
+                           sum(dt$party == 'R'), 
+                           sum(dt$party == 'R')/length(dt$party),
+                           sum((dt$party == 'D') | (dt$party == 'I') |(dt$party == 'R')), 
+                           sum((dt$party == 'D') | (dt$party == 'I') |(dt$party == 'R')) /length(dt$party)),
                  dim = c(2,4),
                  dimnames = list(Count = c("Voter Count", "pi.hat"), 
                                  Party_affiliation = c("Democrat", "Independent", "Republican", "Total")))
@@ -100,12 +106,12 @@ We observe that 38% of the voters in the dataset are affiliated with the Democra
 
 ### Race
 ```{r}
-c.table <- array(data = c( sum(df$race_white == 1), 
-                           sum(df$race_white == 1)/length(df$race_white),
-                           sum(df$race_white == 0), 
-                           sum(df$race_white == 0)/length(df$race_white), 
-                           sum((df$race_white == 1) | (df$race_white == 0)), 
-                           sum((df$race_white == 1) | (df$race_white == 0)) /length(df$race_white)),
+c.table <- array(data = c( sum(dt$race_white == 1), 
+                           sum(dt$race_white == 1)/length(dt$race_white),
+                           sum(dt$race_white == 0), 
+                           sum(dt$race_white == 0)/length(dt$race_white), 
+                           sum((dt$race_white == 1) | (dt$race_white == 0)), 
+                           sum((dt$race_white == 1) | (dt$race_white == 0)) /length(dt$race_white)),
                  dim = c(2,3),
                  dimnames = list(Count = c("Voter Count", "pi.hat"), 
                                  Race = c("White", "Non White", "Total")))
@@ -116,12 +122,12 @@ The 73% white / non-white ratio is inline with the overall US population (accord
 
 ### Gender
 ```{r}
-c.table <- array(data = c( sum(df$gender == 1), 
-                           sum(df$gender == 1)/length(df$gender),
-                           sum(df$gender == 2), 
-                           sum(df$gender == 2)/length(df$gender), 
-                           sum((df$gender == 1) | (df$gender == 2)), 
-                           sum((df$gender == 1) | (df$gender == 2)) /length(df$gender)),
+c.table <- array(data = c( sum(dt$gender == 1), 
+                           sum(dt$gender == 1)/length(dt$gender),
+                           sum(dt$gender == 2), 
+                           sum(dt$gender == 2)/length(dt$gender), 
+                           sum((dt$gender == 1) | (dt$gender == 2)), 
+                           sum((dt$gender == 1) | (dt$gender == 2)) /length(dt$gender)),
                  dim = c(2,3),
                  dimnames = list(Count = c("Voter Count", "pi.hat"), 
                                  Gender = c("Male", "Female", "Total")))
@@ -130,12 +136,17 @@ round(c.table,2)
 ```
 The female / male ration is 1.10 on the dataset and the population ratio (according to Wikipedia) is 1.05. So the sample data doesn't appear to have a meaningful skew.
 
+# UPDATE =====================
+# Daghan will update age
+# UPDATE =====================
+
+
 ### Age
 ```{r}
-ggplot(df, aes(age)) +
+ggplot(dt, aes(age)) +
   geom_histogram(binwidth = 1, fill = 'magenta')
 
-c.table <- array(data = c(range(df$age)),
+c.table <- array(data = c(range(dt$age)),
                  dim = c(1,2),
                  dimnames = list(c("Voter Age"), 
                                  c("Youngest", "Oldest")))
@@ -150,7 +161,7 @@ We observe that age data for the voters in the survey is within the norms (i.e, 
 # Multivariate analysis
 ## preference vs. party
 ```{r}
-c.tabs <- xtabs( ~ sanders_preference + party , data = df)
+c.tabs <- xtabs( ~ sanders_preference + party , data = dt)
 c.tabs <- rbind(c.tabs,colSums(c.tabs))
 c.tabs <- cbind(c.tabs,rowSums(c.tabs))
 
@@ -160,14 +171,14 @@ c.table <- array(data = as.array(c.tabs),
                       Party = c("Democratic", "Independent", "Republican", "Total")))
 
 round(c.table, 2)
-round(c.table / dim(df)[1], 2)
+round(c.table / dim(dt)[1], 2)
 
 ```
 We have further proof that Bernie is popular with the wrong group (i.e, Independents and Republicans), which is a point we touched on the univariate analysis section for the preference variable. While he enjoys roughly 2x the popularity of Hillary Clinton among the Independents and Republicans, he is less popular among the Democrats. **Our intuition is to include Independents to the target audience** as their lack of enthousiasm for the Democratic party may be offset by their support for Bernie.
 
 ## preference vs. race_white
 ```{r}
-c.tabs <- xtabs( ~ sanders_preference + race_white , data = df)
+c.tabs <- xtabs( ~ sanders_preference + race_white , data = dt)
 c.tabs <- rbind(c.tabs,colSums(c.tabs))
 c.tabs <- cbind(c.tabs,rowSums(c.tabs))
 
@@ -177,16 +188,28 @@ c.table <- array(data = as.array(c.tabs),
                       Party = c("Whites", "Non Whites", "Total")))
 
 round(c.table, 2)
-round(c.table / dim(df)[1], 2)
+round(c.table / dim(dt)[1], 2)
 ```
 Bernie enjoys 4 times more support from Non White voters than White voters. This is definitely a strong signal for our model, so we will explore adding race as a dependent variable to our model.
 
 
 ## preference ~ gender
-## preference ~ age (boxplot of age factored by preference)
+
+## Preference x Age
+```{r}
+dt[, .('Mean Age' = mean(age)), by = sanders_preference] # Average age of Sanders preference is 48 vs 50
+ggplot(dt, aes(x = sanders_preference, y = age, group = sanders_preference)) + geom_boxplot()
+```
+
 
 ## age ~ party
+
 ## age ~ race_white
+```{r}
+# Preference x Race
+table(preference = dt$sanders_preference, race_white = dt$race_white)
+```
+
 ## age ~ gender
 
 # Interactions
