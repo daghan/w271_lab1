@@ -24,6 +24,7 @@ library(ggplot2)
 library(Hmisc)
 library(GGally)
 library(data.table)
+library(stargazer)
 
 
 setwd("/Users/daghanaltas/Hacking/Berkeley/W271/Labs/Lab1")
@@ -48,12 +49,8 @@ The dataset contains 5 variables with 1200 samples:
 
 ## Clean-up  
 * We are going to create a new variable, **age** based on the **birthyr** variable through the following formula: $$age = 2016 - birthyr$$ We will use 2016, as the data was collected in 2016, since we are interested in the age of the voters **_when_** the data was collected.  
-* We are going to remove the 9 observations without the **sanders_preference** value. A possible way to impute these **NA** values could be to use a logistic regression but for this work, we'll simply opt to remove these observations (9 out of 1200 observations is less than 1% of the data).
+* We are going to remove the 9 observations without the **sanders_preference** value. A possible way to impute these **NA** values could be to use a logistic regression but for this work, we'll simply opt to remove these observations (9 out of 1200 observations is less than 1% of the data), especially given that the other values for each observation are close to the mean of their respective columns.
 * We'll convert all categorical variables to R factor variables. 
-
-# UPDATE =====================
-# Hoang will update it
-# UPDATE =====================
 
 
 ```{r}
@@ -181,7 +178,7 @@ c.tabs <- cbind(c.tabs,rowSums(c.tabs))
 c.table <- array(data = as.array(c.tabs),
       dim = c(3,3),
       dimnames = list(Preference = c("Hillary", "Bernie", "Total"), 
-                      Party = c("Whites", "Non Whites", "Total")))
+                      Race = c("Whites", "Non Whites", "Total")))
 
 round(c.table, 2)
 round(c.table / dim(dt)[1], 2)
@@ -191,22 +188,41 @@ Bernie enjoys 4 times more support from Non White voters than White voters. This
 
 ## preference ~ gender
 
+```{r}
+table(dt[,.(Gender = ifelse(gender==1,"Female","Male"), Preference = ifelse(sanders_preference==1, "Sanders", "Hillary"))])
+
+```
+
 ## Preference x Age
 ```{r}
-dt[, .('Mean Age' = mean(age)), by = sanders_preference] # Average age of Sanders preference is 48 vs 50
+dt[,.(age, Preference = ifelse(sanders_preference==1, "Sanders", "Hillary"))][, .('Mean Age' = mean(age)), by = Preference] # Average age of those who prefer Sanders is 48 vs 50
 ggplot(dt, aes(x = sanders_preference, y = age, group = sanders_preference)) + geom_boxplot()
 ```
 
-
 ## age ~ party
+```{r}
+dt[, .('Mean Age' = mean(age)), by = party] # 48:47:52 Age of Democrat:Independent:Republican
+
+ggplot(dt, aes(x = party, y = age, group = party)) + geom_boxplot()
+```
 
 ## age ~ race_white
 ```{r}
-# Preference x Race
-table(preference = dt$sanders_preference, race_white = dt$race_white)
+
+dt[,.(age, race_white = ifelse(race_white==1, "White", "Non-white"))][, .('Mean Age' = mean(age)), by = race_white] # 50 vs 44 for race = white
+
+ggplot(dt, aes(x = race_white, y = age, group = race_white)) + geom_boxplot()
+
 ```
 
 ## age ~ gender
+
+```{r}
+dt[,.(age, gender = ifelse(gender==1, "Female", "Male"))][, .('Mean Age' = mean(age)), by = gender]
+
+ggplot(dt, aes(x = gender, y = age, group = gender)) + geom_boxplot()
+```
+
 
 # Interactions
 ???? intiuition
@@ -214,7 +230,66 @@ preference ~ age & gender
 preference ~ age & race_white
 preference ~ age & party
 
+# Models
 
+## Basic logistic model
+
+```{r}
+model1.0 = glm(sanders_preference ~ party + race_white + gender + age, dt, family = binomial(link = "logit"))
+summary(model01)
+
+```
+
+### Testing variable importance
+
+```{r}
+# Removing Gender variable
+
+model1.1 = glm(sanders_preference ~ party + race_white + age, dt, family = binomial(link = "logit"))
+anova(model1.0,model1.1,test = "LRT")
+# Can not reject the null, therefore Gender is not a significant variable
+
+summary(model1.1)
+```
+
+```{r}
+model1.2 = glm(sanders_preference ~ party + race_white + log(age), dt, family = binomial(link="logit"))
+summary(model1.2)
+
+# Comparing standard vs. log of age model
+
+anova(model1.1, model1.2, test = "LRT") # Models are not statistically different
+
+```
+
+
+## Model with Interactions
+
+```{r}
+model2.0 = glm(sanders_preference ~ party + race_white + age, dt, family = binomial(link = "logit"))
+model2.1 = glm(sanders_preference ~ party + race_white*age, dt, family = binomial(link = "logit"))
+model2.2 = glm(sanders_preference ~ race_white + age*party, dt, family = binomial(link = "logit"))
+model2.3 = glm(sanders_preference ~ age + party*race_white, dt, family = binomial(link = "logit"))
+
+stargazer(model2.0, model2.1,model2.2,model2.3, type = "text")
+
+# No statistically significant improvement with interaction terms
+
+```
+
+```{r}
+# Gender re-added to models with interaction
+
+model3.0 = glm(sanders_preference ~ gender + party + race_white + age, dt, family = binomial(link = "logit"))
+model3.1 = glm(sanders_preference ~ gender + party + race_white*age, dt, family = binomial(link = "logit"))
+model3.2 = glm(sanders_preference ~ gender + race_white + age*party, dt, family = binomial(link = "logit"))
+model3.3 = glm(sanders_preference ~ gender + age + party*race_white, dt, family = binomial(link = "logit"))
+
+stargazer(model3.0, model3.1,model3.2,model3.3, type = "text")
+
+# Still not significant with gender added back
+
+```
 
 
 ```
