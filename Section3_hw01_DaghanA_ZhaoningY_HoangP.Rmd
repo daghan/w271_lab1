@@ -6,6 +6,8 @@ output: html_document
 ---
 ```{r setup, warning=FALSE, echo=FALSE}
 knitr::opts_chunk$set(cache=TRUE)
+library(knitr)
+opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
 ```
 
 
