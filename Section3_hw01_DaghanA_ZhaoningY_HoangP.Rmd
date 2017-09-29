@@ -48,8 +48,17 @@ The dataset contains 5 variables with 1200 samples:
 * None of the other variables have missing values. 
 
 ## Clean-up  
-* We are going to create a new variable, **age** based on the **birthyr** variable through the following formula: $$age = 2016 - birthyr$$ We will use 2016, as the data was collected in 2016, since we are interested in the age of the voters **_when_** the data was collected.  
-* We are going to remove the 9 observations without the **sanders_preference** value. A possible way to impute these **NA** values could be to use a logistic regression but for this work, we'll simply opt to remove these observations (9 out of 1200 observations is less than 1% of the data), especially given that the other values for each observation are close to the mean of their respective columns.
+* We are going to create a new variable, **age** based on the **birthyr** variable through the following formula: $$age = 2015 - birthyr$$ We will use 2015, as the data was collected in 2016, since we are interested in the age of the voters **_when_** the data was collected. (All people born in 2015 will be counted as age=1, but this is only true if the survey was taken on 12/31/2016; suppose the survey was taken on 01/01/2016, then none of the people born in 2015 actually reached age 1, they are all actually age 0 when being surveyed, in this case "age = 2015 - birthyr" is the correct formula. We don't know when the survey was taken, but by changing the calculation to "age = 2015 - birthyr", the minimum age is 18 now) 
+# Update Daghan
+
+* We are going to remove the 9 observations without the **sanders_preference** value. A possible way to impute these **NA** values could be to use a logistic regression but for this work, we'll simply opt to remove these observations (9 out of 1200 observations is less than 1% of the data), especially given that the other values for each observation are close to the mean of their respective columns. A table of the NA observations are detailed below:
+
+```{r}
+## Hoang to add table
+
+
+```
+
 * We'll convert all categorical variables to R factor variables. 
 
 
