@@ -309,7 +309,8 @@ Based on the exploratory data analysis, our model exploration strategy is as fol
 * Investigate additional interactions:
     + Interaction between age and race
     + Interaction between age and party  
-  
+
+Note: We are not going to investigate any interaction with gender since we have concluded that it is not a significant explanatory variable and therefore we don't expect it to have any meaningful interaction with the other explanatory variables.
 
 ## Is gender important?
 
@@ -332,7 +333,7 @@ summary(model1.Ha)
 anova(model1.H0, model1.Ha, test = "Chisq")
 ```
 There is no evidence supporting the alternative hypothesis that __gender__ is an explanatory variable given that __age__ is in the model.
-We fail to reject the null hypothesis that $\beta_{gender} \neq 0$.
+We fail to reject the null hypothesis that $\beta_{gender} = 0$.
 
 ## Adding race and party affiliation
 We are now going to include race and party. To recap:  
