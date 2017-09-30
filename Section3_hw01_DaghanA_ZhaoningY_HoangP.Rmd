@@ -1,0 +1,521 @@
+---
+title: "W271 Section 3 Lab 1"
+author: "Daghan Altas, Zhaoning Yu, Hoang Phan"
+date: "9/23/2017"
+output: 
+  pdf_document: default
+  html_notebook: default
+---
+```{r setup, warning=FALSE, echo=FALSE}
+knitr::opts_chunk$set(cache=TRUE)
+library(knitr)
+opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
+```
+
+
+# Problem statement  
+
+In this lab, we are going to model the relationship between age and voters' preference for Bernie Sanders over Hillary Clinton. 
+
+# Dataset 
+The dataset comes from the 2016 American National Election Survey.
+
+```{r warning=FALSE, message=FALSE}
+library(dplyr)
+library(ggplot2)
+library(Hmisc)
+library(GGally)
+library(data.table)
+library(stargazer)
+
+setwd("/Users/daghanaltas/Hacking/Berkeley/W271/Labs/w271_lab1/")
+ 
+df <- read.csv("./public_opinion.csv")
+head(df)
+describe(df)
+
+```   
+## Description of the data   
+The dataset contains 5 variables with 1200 samples:
+
+* **sanders_preference**: A categorical variable with 2 levels, denoting whether the voter prefers Bernie Sanders (=1) or Hillary Clinton (=0).
+* **party**: A categorical variable with 3 levels, denoting whether the voter prefers is affiliated with the Democratic Party (=1), Independent (=2), or Republican Party (=3).  
+* **race_white**: A categorical variable with 2 levels, denoting wheter the voter is White (=1), or not (=0).  
+* **gender**: A categorical variable with 2 levels, denoting whether the voter is male (=1), or female (=2).  
+* **birthyr**: A numerical variable, denoting the birthyear of the voter. 
+
+## Observations: 
+* There are 9 missing values (NAs) for the **sanders_preference** variable.  
+* There is no direct **age** variable. We'll derive it from the **birthyr** variable.
+* None of the other variables have missing values. 
+
+## Clean-up  
+* We are going to create a new variable, **age** based on the **birthyr** variable through the following formula: $$age = 2015 - birthyr$$ We will use 2015, as the data was collected in 2016, since we are interested in the age of the voters **_when_** the data was collected. (All people born in 2015 will be counted as age=1, but this is only true if the survey was taken on 12/31/2016; suppose the survey was taken on 01/01/2016, then none of the people born in 2015 actually reached age 1, they are all actually age 0 when being surveyed, in this case "age = 2015 - birthyr" is the correct formula. We don't know when the survey was taken, but by changing the calculation to "age = 2015 - birthyr", the minimum age is 18 now) 
+# Update Daghan
+
+* We are going to remove the 9 observations without the **sanders_preference** value. A possible way to impute these **NA** values could be to use a logistic regression but for this work, we'll simply opt to remove these observations (9 out of 1200 observations is less than 1% of the data), especially given that the other values for each observation are close to the mean of their respective columns. A table of the NA observations are detailed below:
+
+```{r}
+## Hoang to add table
+
+
+```
+
+* We'll convert all categorical variables to R factor variables. 
+
+
+```{r}
+dim(df)
+df <- df[!is.na(df$sanders_preference),]
+df$sanders_preference <- as.factor(df$sanders_preference)
+df$party <- factor(x = df$party, levels = c("1","2","3"), labels = c("D", "I", "R"))
+df$race_white <- as.factor(df$race_white)
+df$gender <- as.factor(df$gender)
+df$age <- 2015 - df$birthyr
+dim(df)
+head(df)
+dt <- data.table(df)
+```   
+
+# Explotary Data Analysis
+##Univariate analysis    
+### Sanders vs. Hillary Preference
+```{r}
+#xtabs( ~ sanders_preference, data=dt)
+c.table <- array(data = c( sum(dt$sanders_preference == 1), 
+                           sum(dt$sanders_preference == 1) / length(dt$sanders_preference),
+                           sum(dt$sanders_preference == 0),
+                           sum(dt$sanders_preference == 0) / length(dt$sanders_preference),
+                           sum((dt$sanders_preference == 0) | (dt$sanders_preference == 1)), 
+                           sum((dt$sanders_preference == 0) | (dt$sanders_preference == 1)) / length(dt$sanders_preference)),
+                 dim = c(2,3),
+                 dimnames = list(Count = c("Voter Count", "pi.hat"), 
+                                 Preference = c("Bernie", "Hillary", "Total")))
+
+round(c.table,2)
+```    
+In this survey, 58% of voters prefer Hillary over Bernie. While there is a larger than expected Bernie preference (since Hillary Clinton won the Democratic nomiation, one would expect to see a higher ratio for Clinton than Bernie), there isn't a substantial tilt in one direction or the other. One possible explanation is that Bernie is more popular among the Independents and Republicans. So we are going to assume that this sample does not exhibit a meaningful selection bias (sample set is random).
+
+### Party affiliations
+```{r}
+c.table <- array(data = c( sum(dt$party == 'D'), 
+                           sum(dt$party == 'D')/length(dt$party),
+                           sum(dt$party == 'I'), 
+                           sum(dt$party == 'I')/length(dt$party), 
+                           sum(dt$party == 'R'), 
+                           sum(dt$party == 'R')/length(dt$party),
+                           sum((dt$party == 'D') | (dt$party == 'I') |(dt$party == 'R')), 
+                           sum((dt$party == 'D') | (dt$party == 'I') |(dt$party == 'R')) /length(dt$party)),
+                 dim = c(2,4),
+                 dimnames = list(Count = c("Voter Count", "pi.hat"), 
+                                 Party_affiliation = c("Democrat", "Independent", "Republican", "Total")))
+
+round(c.table,2)
+```    
+We observe that 38% of the voters in the dataset are affiliated with the Democratic Party, whereas only 23% are affiliated with the Republican Party. The 0.6  Democratic to Republican ratio is noteworthy. The data appears to be skewed towards Democratic voters (perhaps a specific region of the country). Our model may not be applicable to the entire country. A further analysis of how the dataset was sampled from the entire population would be very useful.
+
+### Race
+```{r}
+c.table <- array(data = c( sum(dt$race_white == 1), 
+                           sum(dt$race_white == 1)/length(dt$race_white),
+                           sum(dt$race_white == 0), 
+                           sum(dt$race_white == 0)/length(dt$race_white), 
+                           sum((dt$race_white == 1) | (dt$race_white == 0)), 
+                           sum((dt$race_white == 1) | (dt$race_white == 0)) /length(dt$race_white)),
+                 dim = c(2,3),
+                 dimnames = list(Count = c("Voter Count", "pi.hat"), 
+                                 Race = c("White", "Non White", "Total")))
+
+round(c.table,2)
+```    
+The 73% white / non-white ratio is inline with the overall US population (according to the 2016 US Census, whites made up 72.4% of the population). The dataset does not appear to have a selection bias with respect to the voter race
+
+### Gender
+```{r}
+c.table <- array(data = c( sum(dt$gender == 1), 
+                           sum(dt$gender == 1)/length(dt$gender),
+                           sum(dt$gender == 2), 
+                           sum(dt$gender == 2)/length(dt$gender), 
+                           sum((dt$gender == 1) | (dt$gender == 2)), 
+                           sum((dt$gender == 1) | (dt$gender == 2)) /length(dt$gender)),
+                 dim = c(2,3),
+                 dimnames = list(Count = c("Voter Count", "pi.hat"), 
+                                 Gender = c("Male", "Female", "Total")))
+
+round(c.table,2)
+```
+The female / male ration is 1.10 on the dataset and the population ratio (according to Wikipedia) is 1.05. So the sample data doesn't appear to have a meaningful skew.
+
+### Age
+```{r}
+ggplot(dt, aes(age)) +
+  geom_histogram(binwidth = 1, fill = 'magenta')
+
+c.table <- array(data = c(range(dt$age)),
+                 dim = c(1,2),
+                 dimnames = list(c("Voter Age"), 
+                                 c("Youngest", "Oldest")))
+round(c.table,2)
+```
+We observe that age data for the voters in the survey is within the norms (i.e, there is no one below 18) an as expected, as the age variable moves beyond 70, there is a rapid decline. However the data appears to be tri-model. There is not an obvious explanation for that either. This may point to a selection bias (i.e, the sample isn't trully random). We'll note the shortcoming in our final analysis as a caution.
+
+
+# Multivariate analysis  
+At this section, we are going to focus on the relationship between the outcome (__sanders_preference__) and possible explanatory variables including:  
+
+* preference vs. party
+* preference vs. race
+* preference vs. gender
+* age vs. party
+* age vs. race
+* age vs. gender
+
+
+## preference vs. party
+```{r}
+c.tabs <- xtabs( ~ sanders_preference + party , data = dt)
+c.tabs <- rbind(c.tabs,colSums(c.tabs))
+c.tabs <- cbind(c.tabs,rowSums(c.tabs))
+
+c.table <- array(data = as.array(c.tabs),
+      dim = c(3,4),
+      dimnames = list(Preference = c("Hillary", "Bernie", "Total"), 
+                      Party = c("Democratic", "Independent", "Republican", "Total")))
+
+round(c.table, 2)
+round(c.table / dim(dt)[1], 2)
+
+```
+We have further proof that Bernie is popular with the wrong group (i.e, Independents and Republicans), which is a point we touched on the univariate analysis section for the preference variable. While he enjoys roughly 2x the popularity of Hillary Clinton among the Independents and Republicans, he is less popular among the Democrats. **Our intuition is to include Independents to the target audience** as their lack of enthousiasm for the Democratic party may be offset by their support for Bernie.
+
+## preference vs. race_white
+```{r}
+c.tabs <- xtabs( ~ sanders_preference + race_white , data = dt)
+c.tabs <- rbind(c.tabs,colSums(c.tabs))
+c.tabs <- cbind(c.tabs,rowSums(c.tabs))
+
+c.table <- array(data = as.array(c.tabs),
+      dim = c(3,3),
+      dimnames = list(Preference = c("Hillary", "Bernie", "Total"), 
+                      Race = c("Whites", "Non Whites", "Total")))
+
+round(c.table, 2)
+round(c.table / dim(dt)[1], 2)
+```
+Bernie enjoys 4 times more support from Non White voters than White voters. This is definitely a strong signal for our model, so **we will explore adding race as a dependent variable to our model.**
+
+
+## preference vs. gender
+
+```{r}
+t <- table(dt[,.(Gender = ifelse(gender==1,"Female","Male"), Preference = ifelse(sanders_preference==1, "Sanders", "Hillary"))])
+t
+
+round(t/sum(t),2)
+```
+Both males and females are more likely to prefer Sanders. $P(prefers\_sanders | female ) = \frac{0.27}{0.47} = 0.58$ and $P(prefers\_sanders | male ) = \frac{0.30}{0.52} = 0.58$. So **there doesn't seem to be a strong direct relationship between preference for Bernie Sanders and gender.** We'll revisit the gender variable as part of our interaction analysis. 
+
+
+## Preference vs. age
+```{r}
+dt[,.(age, Preference = ifelse(sanders_preference==1, "Sanders", "Hillary"))][, .('Mean Age' = mean(age)), by = Preference] # Average age of those who prefer Sanders is 48 vs 50
+ggplot(dt, aes(x = sanders_preference, y = age, group = sanders_preference)) + geom_boxplot()
+```
+Looking at the boxplot, it is clear that mean age for people who prefer Bernie Sanders is younger, but not that much. Also the 1st quartile is lower, but also not that much. So the boxplot doesn't provide a strong visual evidence for either adding or excluding the age as an explanatory variable.  
+
+We are going to plot a frequency polygon for age conditioned on sanders_preference to have a closer look. 
+
+```{r}
+ggplot(dt, aes(age, color = sanders_preference)) +
+  geom_freqpoly(binwidth = 3)
+```   
+
+The frequency polygon indicates that there is a clear difference in favor of Bernie Sanders for voters below the age of 40. We'll use 40 years as a cutoff point for old vs young age groups in our model.
+
+
+## age vs. party
+```{r}
+dt[, .('Mean Age' = mean(age)), by = party] # 48:47:52 Age of Democrat:Independent:Republican
+
+ggplot(dt, aes(x = party, y = age, group = party)) + geom_boxplot()
+```
+We observe that Independents and Democrats are relatively younger than Republicants, which is another indicator that adding age in the model is a good idea. 
+
+
+## age vs. race_white
+```{r}
+
+dt[,.(age, race_white = ifelse(race_white==1, "White", "Non-white"))][, .('Mean Age' = mean(age)), by = race_white] # 50 vs 44 for race = white
+
+ggplot(dt, aes(x = race_white, y = age, group = race_white)) + geom_boxplot()
+
+```
+Non-white people prefer Bernie to Hillary Clinton ($\frac{\hat\pi_{Bernie|non_white}}{\hat\pi_{Hillary|non_white}}\approx4$). The boxplot provides evidence that non-white voters are younger, so that is further evidence that age will be a strong candidate as an explanatory variable in our model.
+
+
+# ======================================
+## Daghan: I want to remove this section
+# ======================================
+
+## age vs. gender
+
+```{r}
+dt[,.(age, gender = ifelse(gender==1, "Female", "Male"))][, .('Mean Age' = mean(age)), by = gender]
+
+ggplot(dt, aes(x = gender, y = age, group = gender)) + geom_boxplot()
+```
+
+
+# Interactions
+
+## preference ~ age & gender
+
+## preference ~ age & race_white
+```{r}
+ggplot(dt, aes(x = interaction(race_white, sanders_preference), y = age)) + geom_boxplot()
+```    
+
+Non-white voters who prefer Bernie are the youngest group (based on their 1st, 3rd quartile and mean age). We'll test for interaction between age and 
+
+## preference ~ age & party
+
+```{r}
+ggplot(dt, aes(x = interaction(sanders_preference, party), y = age)) + geom_boxplot()
+```
+For Republicans and Independents, the mean and 3rd quartiles for age don't change that much based on sanders_preference. But 1st quartile for Independents as well as the mean age for Democrats changes noticeably based on sanders_preference. **We are going to explore the interaction between the age and party variables.**
+
+# Models
+
+## Basic logistic model
+
+```{r}
+model1.0 = glm(sanders_preference ~ party + race_white + gender + age, dt, family = binomial(link = "logit"))
+summary(model1.0)
+
+```
+
+### Testing variable importance
+
+```{r}
+# Removing Gender variable
+
+model1.1 = glm(sanders_preference ~ party + race_white + age, dt, family = binomial(link = "logit"))
+anova(model1.0,model1.1,test = "LRT")
+# Can not reject the null, therefore Gender is not a significant variable
+
+summary(model1.1)
+```
+
+```{r}
+model1.2 = glm(sanders_preference ~ party + race_white + log(age), dt, family = binomial(link="logit"))
+summary(model1.2)
+
+# Comparing standard vs. log of age model
+
+anova(model1.1, model1.2, test = "LRT") # Models are not statistically different
+
+```
+
+
+## Model with Interactions
+
+```{r}
+model2.0 = glm(sanders_preference ~ party + race_white + age, dt, family = binomial(link = "logit"))
+model2.1 = glm(sanders_preference ~ party + race_white*age, dt, family = binomial(link = "logit"))
+model2.2 = glm(sanders_preference ~ race_white + age*party, dt, family = binomial(link = "logit"))
+model2.3 = glm(sanders_preference ~ age + party*race_white, dt, family = binomial(link = "logit"))
+
+stargazer(model2.0, model2.1,model2.2,model2.3, type = "text")
+
+# No statistically significant improvement with interaction terms
+
+```
+
+```{r}
+# Gender re-added to models with interaction
+
+model3.0 = glm(sanders_preference ~ gender + party + race_white + age, dt, family = binomial(link = "logit"))
+model3.1 = glm(sanders_preference ~ gender + party + race_white*age, dt, family = binomial(link = "logit"))
+model3.2 = glm(sanders_preference ~ gender + race_white + age*party, dt, family = binomial(link = "logit"))
+model3.3 = glm(sanders_preference ~ gender + age + party*race_white, dt, family = binomial(link = "logit"))
+
+stargazer(model3.0, model3.1,model3.2,model3.3, type = "text")
+
+# Still not significant with gender added back
+
+```
+
+
+# Probability Plots
+
+#### the base model (FOR TESTING PLOTS)
+
+```{r}
+logit.mod.base <- glm(formula = sanders_preference ~ age, 
+               family = binomial(link = logit), data = dt )
+```
+
+#### the full model (FOR TESTING PLOTS)
+
+```{r}
+logit.mod.full <- glm(formula = sanders_preference ~ age + race_white + party + gender + age:party, 
+               family = binomial(link = logit), data = dt )
+```
+
+#### function for calculating C.I.
+
+```{r}
+# Wald confidence interval
+wald.ci.pi <- function(newdata, mod.fit.obj, alpha){
+  linear.pred <- predict(object = mod.fit.obj, newdata = newdata, type = "link", se = TRUE)
+  CI.lin.pred.lower <- linear.pred$fit - qnorm(p = 1 - alpha/2) * linear.pred$se   # Wald interval
+  CI.lin.pred.upper <- linear.pred$fit + qnorm(p = 1 - alpha/2) * linear.pred$se   # Wald interval
+  CI.pi.lower <- exp(CI.lin.pred.lower)/(1+exp(CI.lin.pred.lower))
+  CI.pi.upper <- exp(CI.lin.pred.upper)/(1+exp(CI.lin.pred.upper))
+  list(lower = CI.pi.lower, upper = CI.pi.upper)
+}
+
+# test case for logit.mod.1 at age = 50
+# wald.ci.pi(newdata = data.frame(age = 50), mod.fit.obj = logit.mod.1, alpha = 0.05)
+
+```
+
+## Bubble plot of the base model for all observations
+
+### aggregate the data by age for symbols
+
+In this case, the data include all observations.
+
+```{r}
+w <- aggregate(formula = as.numeric(dt$sanders_preference)-1 ~ dt$age,  FUN = sum)     # sanders supporters at each age
+n <- aggregate(formula = as.numeric(dt$sanders_preference) ~ dt$age,  FUN = length)  # total voters at each age
+
+names(w)[1] <- "age"
+names(w)[2] <- "preference"
+names(n)[1] <- "age"
+names(n)[2] <- "preference"
+
+w.n <- data.frame(age = w$age, n=n$preference, w=w$preference, 
+                  ratio = round(w$preference/n$preference,4)) 
+# head(w.n)  # ratio = (sanders_supporters/total number of voters)
+```
+
+The estimated logistic model with the 95% Wald confidence intervals for the base model $sanders_preference = \beta_0 + \beta_1 age$, the bubble plot also shows the observed ratio of voters who prefer Sanders at each age, with the plotting size being proportional to the number of observations at that age.   
+
+```{r}
+
+par(mfrow = c(1,1))
+# Plot data points ###############################################################################
+symbols(x = w$age, y = w$preference/n$preference, circles = sqrt(n$preference), inches = 0.12,
+        xlab = "age", ylab = "Estimated probability", xlim = c(15,100),
+        panel.first = grid(col = "gray", lty = "dotted"))
+
+# Plot model fit
+curve(expr = predict(object = logit.mod.base, newdata = data.frame(age = x), type = "response"),
+      col = "red", add = TRUE, xlim = c(15,95))
+
+# Plot C.I. bands
+curve(expr = wald.ci.pi(newdata = data.frame(age = x), 
+                        mod.fit.obj = logit.mod.base, alpha = 0.05)$lower,
+      col = "blue", lty= "dotdash", add = TRUE, xlim = c(15,95))
+
+curve(expr = wald.ci.pi(newdata = data.frame(age = x), 
+                        mod.fit.obj = logit.mod.base, alpha = 0.05)$upper,
+      col = "blue", lty= "dotdash", add = TRUE, xlim = c(15,95))
+
+# Legend
+legend(x = 20, y = 0.2, legend = c("Base model", "95% individual C.I."),
+                               lty = c("solid", "dotdash"), col = c("red", "red"), bty = "n")
+```
+
+## Comparing different voter groups using the full model
+
+For comparing different groups of voters using the full model, we will plot the observed data points for the subgroup of voters each model represents with the estimated probability and 95% confidence intervals.
+
+#### Define function plotsubgroup.pi.ci() for subgroup probability plot
+
+```{r}
+plotsugroup.pi.ci <- function(newdata, mod.fit.obj, Race, Party, Gender){
+
+  race_white.G = Race
+  party.G = Party
+  gender.G = Gender
+  
+  # Creating subgroup data frames for the LEFT and RIGHT SIDE PLOT
+  df.G <- newdata[newdata$race_white==race_white.G & newdata$party==party.G & newdata$gender==gender.G,]  
+  
+  # Creating aggregated data for PLOT ###########################################
+  w.G <- aggregate(formula = as.numeric(df.G$sanders_preference)-1 ~ df.G$age,  FUN = sum)     # sanders supporters at each age
+  n.G <- aggregate(formula = as.numeric(df.G$sanders_preference) ~ df.G$age,  FUN = length)  # total voters at each age
+  
+  names(w.G)[1] <- "age"
+  names(w.G)[2] <- "preference"
+  names(n.G)[1] <- "age"
+  names(n.G)[2] <- "preference"
+  
+  w.n.G <- data.frame(age = w.G$age, n=n.G$preference, w=w.G$preference, 
+                    ratio = round(w.G$preference/n.G$preference,4)) 
+
+  # PLOT ###############################################################################
+
+  # Plot data points
+  symbols(x = w.G$age, y = w.G$preference/n.G$preference, circles = sqrt(n.G$preference), inches = 0.1,
+          xlab = "age", ylab = "Estimated probability", xlim = c(15,100),
+          panel.first = grid(col = "gray", lty = "dotted"),
+          main = paste("race:", race_white.G," party:", party.G, ", gender:", gender.G))
+  
+  # Plot model fit
+  curve(expr = predict(object = logit.mod.full, 
+                       newdata = data.frame(age = x, race_white = race_white.G, party=party.G, gender=gender.G), 
+                       type = "response"),
+        col = "red", add = TRUE, xlim = c(15,100), ylim=c(0,1),
+        xlab = "age", ylab = expression(hat(pi)))
+  
+  # Plot C.I. bands
+  curve(expr = wald.ci.pi(newdata = data.frame(age = x, race_white = race_white.G, party=party.G, gender=gender.G), 
+                          mod.fit.obj = logit.mod.full, alpha = 0.05)$lower,
+        col = "blue", lty= "dotdash", add = TRUE, xlim = c(15,100))
+  
+  curve(expr = wald.ci.pi(newdata = data.frame(age = x, race_white = race_white.G, party=party.G, gender=gender.G), 
+                          mod.fit.obj = logit.mod.full, alpha = 0.05)$upper,
+        col = "blue", lty= "dotdash", add = TRUE, xlim = c(15,100))
+  
+  legend(x=15, y=0.3, legend = c("model", "95% C.I."),
+                                 lty = c("solid", "dotdash"), col = c("red", "blue"), bty = "n")
+}
+```
+
+## Plots comparing subgroups
+
+### Example: white male, different parties
+
+```{r}
+# White Male - Democratic
+plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Race= "1", Party= "D", Gender = "2")
+
+# White Male - Independent
+plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Race= "1", Party= "I", Gender = "2")
+
+# White Male - Republican
+plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Race= "1", Party= "R", Gender = "2")
+```
+### Example: male Republican, white vs. non-white
+
+```{r}
+plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Race= "1", Party= "R", Gender = "1")
+
+plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Race= "0", Party= "R", Gender = "1")
+```
+### Example: non-white Democratic, male vs. female
+
+```{r}
+plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Race= "0", Party= "R", Gender = "1")
+
+plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Race= "0", Party= "R", Gender = "2")
+```
+
+
+
+
+
+
