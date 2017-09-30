@@ -249,7 +249,7 @@ ggplot(dt, aes(age, color = sanders_preference)) +
   geom_freqpoly(binwidth = 3)
 ```   
 
-The frequency polygon indicates that there is a clear difference in favor of Bernie Sanders for voters below the age of 40. We'll use 40 years as a cutoff point for old vs young age groups in our model.
+The frequency polygon indicates that there is a clear difference in favor of Bernie Sanders for voters below the age of 40. 
 
 ```{r}
 dt$younger = as.factor(dt$age < 40)
@@ -268,7 +268,7 @@ dt[, .('Mean Age' = mean(age)), by = party] # 48:47:52 Age of Democrat:Independe
 
 ggplot(dt, aes(x = party, y = age, group = party)) + geom_boxplot()
 ```
-We observe that Independents and Democrats are relatively younger than Republicants, which is another indicator that adding age in the model is a good idea. 
+We observe that Independents and Democrats are relatively younger than Republicans, which is another indicator that adding age in the model is a good idea. 
 
 
 ## age vs. race_white
@@ -305,7 +305,6 @@ For Republicans and Independents, the mean and 3rd quartiles for age don't chang
 Based on the exploratory data analysis, our model exploration strategy is as follows:  
 
 * Investigate whether gender is a significant explanatory variable or not.
-* Investigate that __younger__ (age < 40) is a better explanatory variable than __age__.
 * Investiage that both **party** and **race_white** are meaningful explanatory variables.
 * Investigate additional interactions:
     + Interaction between age and race
@@ -335,28 +334,18 @@ anova(model1.H0, model1.Ha, test = "Chisq")
 There is no evidence supporting the alternative hypothesis that __gender__ is an explanatory variable given that __age__ is in the model.
 We fail to reject the null hypothesis that $\beta_{gender} \neq 0$.
 
-
-## Age (numeric) or younger (binary, <40) variable?
-We are going to compare the 2 models and decide which variable provides a better model for our *specific task*
-```{r}
-model2.age = glm(sanders_preference ~ age, dt, family = binomial(link = "logit"))
-model2.younger = glm(sanders_preference ~ younger, dt, family = binomial(link = "logit"))
-stargazer(model2.age, model2.younger, type = "text")
-```
-While there is not a major difference in the AIC criterion between the the models, the 2nd. model providers a more practical interpretation (i.e., providing a clear indication to focus on voters younger than 40).
-
 ## Adding race and party affiliation
 We are now going to include race and party. To recap:  
 
 * Null hypothesis $H_0$:
-    + $logit(\pi_{preference\_sanders}) = \beta_0 + \beta_1 younger$
+    + $logit(\pi_{preference\_sanders}) = \beta_0 + \beta_1 age$
 * Alternative hypothesis $H_a$:
-    + $logit(\pi_{preference\_sanders}) = \beta_0 + \beta_1 younger + \beta_2 partyI + \beta_3 partyR + \beta_4 race\_white$
+    + $logit(\pi_{preference\_sanders}) = \beta_0 + \beta_1 age + \beta_2 partyI + \beta_3 partyR + \beta_4 race\_white$
 
 
 ```{r}
-model3.H0 = glm(sanders_preference ~ younger, dt, family = binomial(link = "logit"))
-model3.Ha = glm(sanders_preference ~ younger + party + race_white, dt, family = binomial(link="logit"))
+model3.H0 = glm(sanders_preference ~ age, dt, family = binomial(link = "logit"))
+model3.Ha = glm(sanders_preference ~ age + party + race_white, dt, family = binomial(link="logit"))
 summary(model3.Ha)
 
 # Comparing H0 and Ha
@@ -373,10 +362,10 @@ We are going to contruct 3 additional models to explore the interactions:
 * Between party and race
 
 ```{r}
-model4.H0  = glm(sanders_preference ~ younger + party + race_white, dt, family = binomial(link="logit")) # also = H3.HA
-model4.Ha1 = glm(sanders_preference ~ younger + party + race_white + younger:race_white, dt, family = binomial(link="logit"))
-model4.Ha2 = glm(sanders_preference ~ younger + party + race_white + younger:party, dt, family = binomial(link="logit"))
-model4.Ha3 = glm(sanders_preference ~ younger + party + race_white + party:race_white, dt, family = binomial(link="logit"))
+model4.H0  = glm(sanders_preference ~ age + party + race_white, dt, family = binomial(link="logit")) # also = H3.HA
+model4.Ha1 = glm(sanders_preference ~ age + party + race_white + age:race_white, dt, family = binomial(link="logit"))
+model4.Ha2 = glm(sanders_preference ~ age + party + race_white + age:party, dt, family = binomial(link="logit"))
+model4.Ha3 = glm(sanders_preference ~ age + party + race_white + party:race_white, dt, family = binomial(link="logit"))
                    
 stargazer(model4.H0, model4.Ha1, model4.Ha2, model4.Ha3, type = "text", report=('vc*p'))
 ```
@@ -391,11 +380,11 @@ colnames(model4.anova.results) <- "Pr(>Chi)"
 rownames(model4.anova.results) <- c("model4.Ha1","model4.Ha2","model4.Ha3")
 model4.anova.results
 ```
-None of the 3 interaction models yields a test statistic satisfactory to reject the null hypothesis. **There is no emprical evidence of any interaction between younger and race, younger and party.**
+None of the 3 interaction models yields a test statistic satisfactory to reject the null hypothesis. **There is no emprical evidence of any interaction between age and race, age and party, and party and race.**
 
 ## Model selection conclusion
 Based on our model study, we conclude that the most appropriate model for the specific question we want to answer (*whether it is a good idea to focus on younger voters*) given the dataset is:  
-$\mathbf {logit(\pi_{preference\_sanders}) = \beta_0 + \beta_1 younger + \beta_2 partyI + \beta_3 partyR + \beta_4 race\_white}$
+$\mathbf {logit(\pi_{preference\_sanders}) = \beta_0 + \beta_1 age + \beta_2 partyI + \beta_3 partyR + \beta_4 race\_white}$
 
 
 # Probability Plots
