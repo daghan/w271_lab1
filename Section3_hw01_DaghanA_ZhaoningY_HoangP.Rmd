@@ -2,7 +2,9 @@
 title: "W271 Section 3 Lab 1"
 author: "Daghan Altas, Zhaoning Yu, Hoang Phan"
 date: "9/23/2017"
-output: html_document
+output: 
+  pdf_document: default
+  html_notebook: default
 ---
 ```{r setup, warning=FALSE, echo=FALSE}
 knitr::opts_chunk$set(cache=TRUE)
@@ -245,7 +247,7 @@ preference ~ age & party
 
 ```{r}
 model1.0 = glm(sanders_preference ~ party + race_white + gender + age, dt, family = binomial(link = "logit"))
-summary(model01)
+summary(model1.0)
 
 ```
 
@@ -301,4 +303,201 @@ stargazer(model3.0, model3.1,model3.2,model3.3, type = "text")
 ```
 
 
+# Probability Plots
+
+#### the base model (FOR TESTING PLOTS)
+
+```{r}
+logit.mod.base <- glm(formula = sanders_preference ~ age, 
+               family = binomial(link = logit), data = dt )
 ```
+
+#### the full model (FOR TESTING PLOTS)
+
+```{r}
+logit.mod.full <- glm(formula = sanders_preference ~ age + race_white + party + gender, 
+               family = binomial(link = logit), data = dt )
+```
+
+#### function for calculating C.I.
+
+```{r}
+# Wald confidence interval
+wald.ci.pi <- function(newdata, mod.fit.obj, alpha){
+  linear.pred <- predict(object = mod.fit.obj, newdata = newdata, type = "link", se = TRUE)
+  CI.lin.pred.lower <- linear.pred$fit - qnorm(p = 1 - alpha/2) * linear.pred$se   # Wald interval
+  CI.lin.pred.upper <- linear.pred$fit + qnorm(p = 1 - alpha/2) * linear.pred$se   # Wald interval
+  CI.pi.lower <- exp(CI.lin.pred.lower)/(1+exp(CI.lin.pred.lower))
+  CI.pi.upper <- exp(CI.lin.pred.upper)/(1+exp(CI.lin.pred.upper))
+  list(lower = CI.pi.lower, upper = CI.pi.upper)
+}
+
+# test case for logit.mod.1 at age = 50
+# wald.ci.pi(newdata = data.frame(age = 50), mod.fit.obj = logit.mod.1, alpha = 0.05)
+
+```
+
+## Bubble plot of the base model for all observations
+
+### aggregate the data by age for symbols
+
+In this case, the data include all observations.
+
+```{r}
+w <- aggregate(formula = as.numeric(dt$sanders_preference)-1 ~ dt$age,  FUN = sum)     # sanders supporters at each age
+n <- aggregate(formula = as.numeric(dt$sanders_preference) ~ dt$age,  FUN = length)  # total voters at each age
+
+names(w)[1] <- "age"
+names(w)[2] <- "preference"
+names(n)[1] <- "age"
+names(n)[2] <- "preference"
+
+w.n <- data.frame(age = w$age, n=n$preference, w=w$preference, 
+                  ratio = round(w$preference/n$preference,4)) 
+# head(w.n)  # ratio = (sanders_supporters/total number of voters)
+```
+
+The estimated logistic model with the 95% Wald confidence intervals for the base model $sanders_preference = \beta_0 + \beta_1 age$, the bubble plot also shows the observed ratio of voters who prefer Sanders at each age, with the plotting size being proportional to the number of observations at that age.   
+
+```{r}
+
+par(mfrow = c(1,1))
+# Plot data points ###############################################################################
+symbols(x = w$age, y = w$preference/n$preference, circles = sqrt(n$preference), inches = 0.12,
+        xlab = "age", ylab = "Estimated probability", xlim = c(15,100),
+        panel.first = grid(col = "gray", lty = "dotted"))
+
+# Plot model fit
+curve(expr = predict(object = logit.mod.base, newdata = data.frame(age = x), type = "response"),
+      col = "red", add = TRUE, xlim = c(15,95))
+
+# Plot C.I. bands
+curve(expr = wald.ci.pi(newdata = data.frame(age = x), 
+                        mod.fit.obj = logit.mod.base, alpha = 0.05)$lower,
+      col = "blue", lty= "dotdash", add = TRUE, xlim = c(15,95))
+
+curve(expr = wald.ci.pi(newdata = data.frame(age = x), 
+                        mod.fit.obj = logit.mod.base, alpha = 0.05)$upper,
+      col = "blue", lty= "dotdash", add = TRUE, xlim = c(15,95))
+
+# Legend
+legend(x = 20, y = 0.2, legend = c("Base model", "95% individual C.I."),
+                               lty = c("solid", "dotdash"), col = c("red", "red"), bty = "n")
+```
+
+## Comparing different voter groups using the full model
+
+For comparing different groups of voters using the full model, we will plot the observed data points for the subgroup of voters each model represents with the estimated probability and 95% confidence intervals.
+
+```{r}
+# Define the parameters for the models
+
+# FOR LEFT SIDE PLOT ################
+race_white.L = "1"
+party.L = "D"
+gender.L = "1"
+
+# FOR RIGHT SIDE PLOT ###############
+race_white.R = "0"
+party.R = "D"
+gender.R = "2"
+
+# Creating subgroup data frames for the LEFT and RIGHT SIDE PLOT
+df.L <- dt[dt$race_white==race_white.L & dt$party==party.L & dt$gender==gender.L,]  
+df.R <- dt[dt$race_white==race_white.R & dt$party==party.R & dt$gender==gender.R,]
+```
+
+```{r}
+# Creating aggregated data for LEFT PLOT ###########################################
+w.L <- aggregate(formula = as.numeric(df.L$sanders_preference)-1 ~ df.L$age,  FUN = sum)     # sanders supporters at each age
+n.L <- aggregate(formula = as.numeric(df.L$sanders_preference) ~ df.L$age,  FUN = length)  # total voters at each age
+
+names(w.L)[1] <- "age"
+names(w.L)[2] <- "preference"
+names(n.L)[1] <- "age"
+names(n.L)[2] <- "preference"
+
+w.n.L <- data.frame(age = w.L$age, n=n.L$preference, w=w.L$preference, 
+                  ratio = round(w.L$preference/n.L$preference,4)) 
+
+# Creating aggregated data for LEFT PLOT ###########################################
+w.R <- aggregate(formula = as.numeric(df.R$sanders_preference)-1 ~ df.R$age,  FUN = sum)     # sanders supporters at each age
+n.R <- aggregate(formula = as.numeric(df.R$sanders_preference) ~ df.R$age,  FUN = length)  # total voters at each age
+
+names(w.R)[1] <- "age"
+names(w.R)[2] <- "preference"
+names(n.R)[1] <- "age"
+names(n.R)[2] <- "preference"
+
+w.n.R <- data.frame(age = w.R$age, n=n.R$preference, w=w.R$preference, 
+                  ratio = round(w.R$preference/n.R$preference,4)) 
+
+```
+
+
+```{r}
+
+#par(mfrow = c(1,2))
+
+# LEFT SIDE PLOT ###############################################################################
+
+# Plot data points
+symbols(x = w.L$age, y = w.L$preference/n.L$preference, circles = sqrt(n.L$preference), inches = 0.1,
+        xlab = "age", ylab = "Estimated probability", xlim = c(15,100),
+        panel.first = grid(col = "gray", lty = "dotted"),
+        main = paste("race:", race_white.L," party:", party.L, ", gender:", gender.L))
+
+# Plot model fit
+curve(expr = predict(object = logit.mod.full, 
+                     newdata = data.frame(age = x, race_white = race_white.L, party=party.L, gender=gender.L), 
+                     type = "response"),
+      col = "red", add = TRUE, xlim = c(15,100), ylim=c(0,1),
+      xlab = "age", ylab = expression(hat(pi)))
+
+# Plot C.I. bands
+curve(expr = wald.ci.pi(newdata = data.frame(age = x, race_white = race_white.L, party=party.L, gender=gender.L), 
+                        mod.fit.obj = logit.mod.full, alpha = 0.05)$lower,
+      col = "blue", lty= "dotdash", add = TRUE, xlim = c(15,100))
+
+curve(expr = wald.ci.pi(newdata = data.frame(age = x, race_white = race_white.L, party=party.L, gender=gender.L), 
+                        mod.fit.obj = logit.mod.full, alpha = 0.05)$upper,
+      col = "blue", lty= "dotdash", add = TRUE, xlim = c(15,100))
+
+# Legend
+# legend(x = 20, y = 0.2, legend = c("Full model", "95% individual C.I."),
+#                                lty = c("solid", "dotdash"), col = c("red", "blue"), bty = "n")
+
+legend("topright", legend = c("Full model", "95% individual C.I."),
+                               lty = c("solid", "dotdash"), col = c("red", "blue"), bty = "n")
+
+# RIGHT SIDE PLOT ###############################################################################
+
+# Plot data points
+symbols(x = w.R$age, y = w.R$preference/n.R$preference, circles = sqrt(n.R$preference), inches = 0.1,
+        xlab = "age", ylab = "Estimated probability", xlim = c(15,100),
+        panel.first = grid(col = "gray", lty = "dotted"),
+        main = paste("race:", race_white.R," party:", party.R, ", gender:", gender.R))
+
+# Plot model fit
+curve(expr = predict(object = logit.mod.full, 
+                     newdata = data.frame(age = x, race_white = race_white.R, party=party.R, gender=gender.R), type = "response"),
+      col = "red", add = TRUE, xlim = c(15,100), ylim=c(0,1),
+      xlab = "age", ylab =expression(hat(pi)))
+
+# Plot C.I. bands
+curve(expr = wald.ci.pi(newdata = data.frame(age = x, race_white =race_white.R, party=party.R, gender=gender.R), 
+                        mod.fit.obj = logit.mod.full, alpha = 0.05)$lower,
+      col = "blue", lty= "dotdash", add = TRUE, xlim = c(15,100))
+
+curve(expr = wald.ci.pi(newdata = data.frame(age = x, race_white =race_white.R, party=party.R, gender=gender.R), 
+                        mod.fit.obj = logit.mod.full, alpha = 0.05)$upper,
+      col = "blue", lty= "dotdash", add = TRUE, xlim = c(15,100))
+
+# Legend
+# legend(x = 20, y = 0.2, legend = c("Full model", "95% individual C.I."),
+#                                lty = c("solid", "dotdash"), col = c("red", "blue"), bty = "n")
+
+legend("topright", legend = c("Full model", "95% individual C.I."),
+                               lty = c("solid", "dotdash"), col = c("red", "blue"), bty = "n")
+```
+
