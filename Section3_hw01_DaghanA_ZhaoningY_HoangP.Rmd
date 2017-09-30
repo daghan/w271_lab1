@@ -28,8 +28,8 @@ library(GGally)
 library(data.table)
 library(stargazer)
 
-setwd("/Users/daghanaltas/Hacking/Berkeley/W271/Labs/Lab1")
-
+#setwd("/Users/daghanaltas/Hacking/Berkeley/W271/Labs/Lab1")
+setwd("~/Desktop/w271/Lab1")
 df <- read.csv("./public_opinion.csv")
 head(df)
 describe(df)
