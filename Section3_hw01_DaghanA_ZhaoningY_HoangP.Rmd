@@ -28,55 +28,74 @@ library(GGally)
 library(data.table)
 library(stargazer)
 
-setwd("/Users/daghanaltas/Hacking/Berkeley/W271/Labs/w271_lab1/")
+
+if (dir.exists("/Users/daghanaltas/Hacking/Berkeley/W271/Labs/w271_lab1/")) {
+  setwd("/Users/daghan/Hacking/Berkeley/W271/Labs/w271_lab1/")
+} else if (dir.exists("/Users/daghan/Hacking/Berkeley/W271/Labs/w271_lab1/")) {
+  setwd("/Users/daghan/Hacking/Berkeley/W271/Labs/w271_lab1/")
+} else {
+  print("add yor local directory path here")
+}
  
 df <- read.csv("./public_opinion.csv")
-head(df)
-describe(df)
-
+dt <- data.table(df)
+head(dt)
+describe(dt)
 ```   
 ## Description of the data   
 The dataset contains 5 variables with 1200 samples:
 
 * **sanders_preference**: A categorical variable with 2 levels, denoting whether the voter prefers Bernie Sanders (=1) or Hillary Clinton (=0).
-* **party**: A categorical variable with 3 levels, denoting whether the voter prefers is affiliated with the Democratic Party (=1), Independent (=2), or Republican Party (=3).  
-* **race_white**: A categorical variable with 2 levels, denoting wheter the voter is White (=1), or not (=0).  
-* **gender**: A categorical variable with 2 levels, denoting whether the voter is male (=1), or female (=2).  
-* **birthyr**: A numerical variable, denoting the birthyear of the voter. 
+* **party**: A categorical variable with 3 levels, denoting whether the voter prefers is affiliated with the Democratic Party (=1), Independent (=2), or Republican Party (=3).
+* **race_white**: A categorical variable with 2 levels, denoting wheter the voter is White (=1), or not (=0).
+* **gender**: A categorical variable with 2 levels, denoting whether the voter is male (=1), or female (=2). 
+* **birthyr**: A numerical variable, denoting the birthyear of the voter.
 
 ## Observations: 
-* There are 9 missing values (NAs) for the **sanders_preference** variable.  
+* There are 9 missing values (NAs) for the **sanders_preference** variable.
 * There is no direct **age** variable. We'll derive it from the **birthyr** variable.
 * None of the other variables have missing values. 
 
 ## Clean-up  
 * We are going to create a new variable, **age** based on the **birthyr** variable through the following formula: $$age = 2015 - birthyr$$ We will use 2015, as the data was collected in 2016, since we are interested in the age of the voters **_when_** the data was collected. (All people born in 2015 will be counted as age=1, but this is only true if the survey was taken on 12/31/2016; suppose the survey was taken on 01/01/2016, then none of the people born in 2015 actually reached age 1, they are all actually age 0 when being surveyed, in this case "age = 2015 - birthyr" is the correct formula. We don't know when the survey was taken, but by changing the calculation to "age = 2015 - birthyr", the minimum age is 18 now) 
-# Update Daghan
+* We'll convert all categorical variables to R factor variables. 
 
+```{r}
+dim(dt)
+dt$sanders_preference <- as.factor(dt$sanders_preference)
+dt$party <- factor(x = dt$party, levels = c("1","2","3"), labels = c("D", "I", "R"))
+dt$race_white <- as.factor(dt$race_white)
+dt$gender <- as.factor(dt$gender)
+dt$age <- 2015 - dt$birthyr
+dim(dt)
+head(dt)
+```   
 * We are going to remove the 9 observations without the **sanders_preference** value. A possible way to impute these **NA** values could be to use a logistic regression but for this work, we'll simply opt to remove these observations (9 out of 1200 observations is less than 1% of the data), especially given that the other values for each observation are close to the mean of their respective columns. A table of the NA observations are detailed below:
 
 ```{r}
+
 ## Hoang to add table
+dt_missing = dt[is.na(sanders_preference)]
+dt_notmissing = dt[!is.na(sanders_preference)]
 
-
+table = data.table(Data = c("NA's", "Remaining Data"),
+           PartyDem = c(round(nrow(dt_missing[party=='D'])/nrow(dt_missing),2),
+                        round(nrow(dt_notmissing[party=='D'])/nrow(dt_notmissing),2)),
+           PartyInd = c(round(nrow(dt_missing[party=='I'])/nrow(dt_missing),2),
+                        round(nrow(dt_notmissing[party=='I'])/nrow(dt_notmissing),2)),
+           PartyRep = c(round(nrow(dt_missing[party=='R'])/nrow(dt_missing),2),
+                        round(nrow(dt_notmissing[party=='R'])/nrow(dt_notmissing),2)),
+           Race_white = c(round(nrow(dt_missing[race_white==1])/nrow(dt_missing),2),
+                          round(nrow(dt_notmissing[race_white==1])/nrow(dt_notmissing),2)),
+           GenderFemale = c(round(nrow(dt_missing[gender==2])/nrow(dt_missing),2),
+                            round(nrow(dt_notmissing[gender==2])/nrow(dt_notmissing),2)),
+           MeanAge = c(round(dt_missing[,mean(age)],2),
+                       round(dt_notmissing[,mean(age)],2)))
+table
+dt <- dt[!is.na(dt$sanders_preference),]
 ```
-
-* We'll convert all categorical variables to R factor variables. 
-
-
-```{r}
-dim(df)
-df <- df[!is.na(df$sanders_preference),]
-df$sanders_preference <- as.factor(df$sanders_preference)
-df$party <- factor(x = df$party, levels = c("1","2","3"), labels = c("D", "I", "R"))
-df$race_white <- as.factor(df$race_white)
-df$gender <- as.factor(df$gender)
-df$age <- 2015 - df$birthyr
-dim(df)
-head(df)
-dt <- data.table(df)
-```   
-
+We observe that 8 out of 9 NAs are female. This requires a careful review. Even if they all preferred Bernie Sanders, it doens't make a big difference in the overall rations. Furthermore, our analysis (below) show that gender is not a meaningful factor for our final model. All other variables deviate very little between the NAs subset and the rest of the data. We justify our decision to remove NA data based on these observations. 
+ 
 # Explotary Data Analysis
 ##Univariate analysis    
 ### Sanders vs. Hillary Preference
@@ -232,6 +251,16 @@ ggplot(dt, aes(age, color = sanders_preference)) +
 
 The frequency polygon indicates that there is a clear difference in favor of Bernie Sanders for voters below the age of 40. We'll use 40 years as a cutoff point for old vs young age groups in our model.
 
+```{r}
+dt$younger = as.factor(dt$age < 40)
+t <- table(dt[,.(Age = ifelse(younger==1,"Younger","Older"), Preference = ifelse(sanders_preference==1, "Sanders", "Hillary"))])
+t
+
+round(t/sum(t),2)
+```
+We confirm that $P(preference\_bernie|Younger) = \frac{0.24}{0.38} \approx 0.63$, whereas $P(preference\_bernie|Older) = \frac{0.34}{0.62} \approx 0.55$. So Bernie is more popular among the voters under the age of 40 than those 40 years or older.   
+
+
 
 ## age vs. party
 ```{r}
@@ -250,20 +279,7 @@ dt[,.(age, race_white = ifelse(race_white==1, "White", "Non-white"))][, .('Mean 
 ggplot(dt, aes(x = race_white, y = age, group = race_white)) + geom_boxplot()
 
 ```
-Non-white people prefer Bernie to Hillary Clinton ($\frac{\hat\pi_{Bernie|non_white}}{\hat\pi_{Hillary|non_white}}\approx4$). The boxplot provides evidence that non-white voters are younger, so that is further evidence that age will be a strong candidate as an explanatory variable in our model.
-
-
-# ======================================
-## Daghan: I want to remove this section
-# ======================================
-
-## age vs. gender
-
-```{r}
-dt[,.(age, gender = ifelse(gender==1, "Female", "Male"))][, .('Mean Age' = mean(age)), by = gender]
-
-ggplot(dt, aes(x = gender, y = age, group = gender)) + geom_boxplot()
-```
+Non-white people prefer Bernie to Hillary Clinton ($\frac{\hat\pi_{Bernie|non\_white}}{\hat\pi_{Hillary|non\_white}}\approx4$). The boxplot provides evidence that non-white voters are younger, so that is further evidence that age will be a strong candidate as an explanatory variable in our model.
 
 
 # Interactions
@@ -275,7 +291,7 @@ ggplot(dt, aes(x = gender, y = age, group = gender)) + geom_boxplot()
 ggplot(dt, aes(x = interaction(race_white, sanders_preference), y = age)) + geom_boxplot()
 ```    
 
-Non-white voters who prefer Bernie are the youngest group (based on their 1st, 3rd quartile and mean age). We'll test for interaction between age and 
+Non-white voters who prefer Bernie are the youngest group (based on their 1st, 3rd quartile and mean age). **We'll explore the interaction between age and race during our model exploration.**
 
 ## preference ~ age & party
 
@@ -286,64 +302,100 @@ For Republicans and Independents, the mean and 3rd quartiles for age don't chang
 
 # Models
 
-## Basic logistic model
+Based on the exploratory data analysis, our model exploration strategy is as follows:  
 
+* Investigate whether gender is a significant explanatory variable or not.
+* Investigate that __younger__ (age < 40) is a better explanatory variable than __age__.
+* Investiage that both **party** and **race_white** are meaningful explanatory variables.
+* Investigate additional interactions:
+    + Interaction between age and race
+    + Interaction between age and party  
+  
+
+## Is gender important?
+
+### Null Hypothesis
+In our null hypothesis we are going to assume that $\beta_{gender} = 0$
 ```{r}
-model1.0 = glm(sanders_preference ~ party + race_white + gender + age, dt, family = binomial(link = "logit"))
-summary(model1.0)
-
+model1.H0 = glm(sanders_preference ~ age, dt, family = binomial(link = "logit"))
+summary(model1.H0)
 ```
 
-### Testing variable importance
-
+### Alternative hypothesis
+In the alternative hypothesis, we are going to assume that $\beta_{gender} \neq 0$
 ```{r}
-# Removing Gender variable
-
-model1.1 = glm(sanders_preference ~ party + race_white + age, dt, family = binomial(link = "logit"))
-anova(model1.0,model1.1,test = "LRT")
-# Can not reject the null, therefore Gender is not a significant variable
-
-summary(model1.1)
+model1.Ha = glm(sanders_preference ~ age + gender, dt, family = binomial(link = "logit"))
+summary(model1.Ha)
 ```
 
+### Comparing H0 to Ha
 ```{r}
-model1.2 = glm(sanders_preference ~ party + race_white + log(age), dt, family = binomial(link="logit"))
-summary(model1.2)
-
-# Comparing standard vs. log of age model
-
-anova(model1.1, model1.2, test = "LRT") # Models are not statistically different
-
+anova(model1.H0, model1.Ha, test = "Chisq")
 ```
+There is no evidence supporting the alternative hypothesis that __gender__ is an explanatory variable given that __age__ is in the model.
+We fail to reject the null hypothesis that $\beta_{gender} \neq 0$.
 
 
-## Model with Interactions
+## Age (numeric) or younger (binary, <40) variable?
+We are going to compare the 2 models and decide which variable provides a better model for our *specific task*
+```{r}
+model2.age = glm(sanders_preference ~ age, dt, family = binomial(link = "logit"))
+model2.younger = glm(sanders_preference ~ younger, dt, family = binomial(link = "logit"))
+stargazer(model2.age, model2.younger, type = "text")
+```
+While there is not a major difference in the AIC criterion between the the models, the 2nd. model providers a more practical interpretation (i.e., providing a clear indication to focus on voters younger than 40).
+
+## Adding race and party affiliation
+We are now going to include race and party. To recap:  
+
+* Null hypothesis $H_0$:
+    + $logit(\pi_{preference\_sanders}) = \beta_0 + \beta_1 younger$
+* Alternative hypothesis $H_a$:
+    + $logit(\pi_{preference\_sanders}) = \beta_0 + \beta_1 younger + \beta_2 partyI + \beta_3 partyR + \beta_4 race\_white$
+
 
 ```{r}
-model2.0 = glm(sanders_preference ~ party + race_white + age, dt, family = binomial(link = "logit"))
-model2.1 = glm(sanders_preference ~ party + race_white*age, dt, family = binomial(link = "logit"))
-model2.2 = glm(sanders_preference ~ race_white + age*party, dt, family = binomial(link = "logit"))
-model2.3 = glm(sanders_preference ~ age + party*race_white, dt, family = binomial(link = "logit"))
+model3.H0 = glm(sanders_preference ~ younger, dt, family = binomial(link = "logit"))
+model3.Ha = glm(sanders_preference ~ younger + party + race_white, dt, family = binomial(link="logit"))
+summary(model3.Ha)
 
-stargazer(model2.0, model2.1,model2.2,model2.3, type = "text")
+# Comparing H0 and Ha
 
-# No statistically significant improvement with interaction terms
-
+anova(model3.H0, model3.Ha, test = "Chisq") 
 ```
+The p-values for the **party(I|R)** and **race_white1** explanatory variales are very low. In addition, the p-value for Ha (model3.Ha) is also very low. We conclude that there is strong empirical evidence for including race and party affilition in our model. 
+
+## Exploring models with interactions
+We are going to contruct 3 additional models to explore the interactions:  
+
+* Between race and age
+* Between party and age
+* Between party and race
 
 ```{r}
-# Gender re-added to models with interaction
-
-model3.0 = glm(sanders_preference ~ gender + party + race_white + age, dt, family = binomial(link = "logit"))
-model3.1 = glm(sanders_preference ~ gender + party + race_white*age, dt, family = binomial(link = "logit"))
-model3.2 = glm(sanders_preference ~ gender + race_white + age*party, dt, family = binomial(link = "logit"))
-model3.3 = glm(sanders_preference ~ gender + age + party*race_white, dt, family = binomial(link = "logit"))
-
-stargazer(model3.0, model3.1,model3.2,model3.3, type = "text")
-
-# Still not significant with gender added back
-
+model4.H0  = glm(sanders_preference ~ younger + party + race_white, dt, family = binomial(link="logit")) # also = H3.HA
+model4.Ha1 = glm(sanders_preference ~ younger + party + race_white + younger:race_white, dt, family = binomial(link="logit"))
+model4.Ha2 = glm(sanders_preference ~ younger + party + race_white + younger:party, dt, family = binomial(link="logit"))
+model4.Ha3 = glm(sanders_preference ~ younger + party + race_white + party:race_white, dt, family = binomial(link="logit"))
+                   
+stargazer(model4.H0, model4.Ha1, model4.Ha2, model4.Ha3, type = "text", report=('vc*p'))
 ```
+We observe that none of the alternative models have any new explanatory variable with a low p-value. We'll confirm our findings with a pairwise anova table $H_0 vs. H_{a1}, H_0 vs. H_{a2}$, and $H_0 vs. H_{a3}$
+```{r}
+model4.1.anova <- anova(model4.H0, model4.Ha1, test = "Chisq" )
+model4.2.anova <- anova(model4.H0, model4.Ha2, test = "Chisq" )
+model4.3.anova <- anova(model4.H0, model4.Ha3, test = "Chisq" )
+
+model4.anova.results <- data.frame(c(model4.1.anova$`Pr(>Chi)`[2],model4.2.anova$`Pr(>Chi)`[2],model4.3.anova$`Pr(>Chi)`[2]))
+colnames(model4.anova.results) <- "Pr(>Chi)"
+rownames(model4.anova.results) <- c("model4.Ha1","model4.Ha2","model4.Ha3")
+model4.anova.results
+```
+None of the 3 interaction models yields a test statistic satisfactory to reject the null hypothesis. **There is no emprical evidence of any interaction between younger and race, younger and party.**
+
+## Model selection conclusion
+Based on our model study, we conclude that the most appropriate model for the specific question we want to answer (*whether it is a good idea to focus on younger voters*) given the dataset is:  
+$\mathbf {logit(\pi_{preference\_sanders}) = \beta_0 + \beta_1 younger + \beta_2 partyI + \beta_3 partyR + \beta_4 race\_white}$
 
 
 # Probability Plots
@@ -442,11 +494,11 @@ plotsugroup.pi.ci <- function(newdata, mod.fit.obj, Race, Party, Gender){
   gender.G = Gender
   
   # Creating subgroup data frames for the LEFT and RIGHT SIDE PLOT
-  df.G <- newdata[newdata$race_white==race_white.G & newdata$party==party.G & newdata$gender==gender.G,]  
+  dt.G <- newdata[newdata$race_white==race_white.G & newdata$party==party.G & newdata$gender==gender.G,]  
   
   # Creating aggregated data for PLOT ###########################################
-  w.G <- aggregate(formula = as.numeric(df.G$sanders_preference)-1 ~ df.G$age,  FUN = sum)     # sanders supporters at each age
-  n.G <- aggregate(formula = as.numeric(df.G$sanders_preference) ~ df.G$age,  FUN = length)  # total voters at each age
+  w.G <- aggregate(formula = as.numeric(dt.G$sanders_preference)-1 ~ dt.G$age,  FUN = sum)     # sanders supporters at each age
+  n.G <- aggregate(formula = as.numeric(dt.G$sanders_preference) ~ dt.G$age,  FUN = length)  # total voters at each age
   
   names(w.G)[1] <- "age"
   names(w.G)[2] <- "preference"
@@ -487,7 +539,7 @@ plotsugroup.pi.ci <- function(newdata, mod.fit.obj, Race, Party, Gender){
 
 ## Plots comparing subgroups
 
-### Example: white male, different parties
+### Example: white female, different parties
 
 ```{r}
 # White Male - Democratic
