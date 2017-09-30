@@ -28,8 +28,8 @@ library(GGally)
 library(data.table)
 library(stargazer)
 
-
 setwd("/Users/daghanaltas/Hacking/Berkeley/W271/Labs/Lab1")
+
 df <- read.csv("./public_opinion.csv")
 head(df)
 describe(df)
@@ -315,7 +315,7 @@ logit.mod.base <- glm(formula = sanders_preference ~ age,
 #### the full model (FOR TESTING PLOTS)
 
 ```{r}
-logit.mod.full <- glm(formula = sanders_preference ~ age + race_white + party + gender, 
+logit.mod.full <- glm(formula = sanders_preference ~ age + race_white + party + gender + age:party, 
                family = binomial(link = logit), data = dt )
 ```
 
@@ -389,115 +389,90 @@ legend(x = 20, y = 0.2, legend = c("Base model", "95% individual C.I."),
 
 For comparing different groups of voters using the full model, we will plot the observed data points for the subgroup of voters each model represents with the estimated probability and 95% confidence intervals.
 
-```{r}
-# Define the parameters for the models
-
-# FOR LEFT SIDE PLOT ################
-race_white.L = "1"
-party.L = "D"
-gender.L = "1"
-
-# FOR RIGHT SIDE PLOT ###############
-race_white.R = "0"
-party.R = "D"
-gender.R = "2"
-
-# Creating subgroup data frames for the LEFT and RIGHT SIDE PLOT
-df.L <- dt[dt$race_white==race_white.L & dt$party==party.L & dt$gender==gender.L,]  
-df.R <- dt[dt$race_white==race_white.R & dt$party==party.R & dt$gender==gender.R,]
-```
+#### Define function plotsubgroup.pi.ci() for subgroup probability plot
 
 ```{r}
-# Creating aggregated data for LEFT PLOT ###########################################
-w.L <- aggregate(formula = as.numeric(df.L$sanders_preference)-1 ~ df.L$age,  FUN = sum)     # sanders supporters at each age
-n.L <- aggregate(formula = as.numeric(df.L$sanders_preference) ~ df.L$age,  FUN = length)  # total voters at each age
+plotsugroup.pi.ci <- function(newdata, mod.fit.obj, Race, Party, Gender){
 
-names(w.L)[1] <- "age"
-names(w.L)[2] <- "preference"
-names(n.L)[1] <- "age"
-names(n.L)[2] <- "preference"
+  race_white.G = Race
+  party.G = Party
+  gender.G = Gender
+  
+  # Creating subgroup data frames for the LEFT and RIGHT SIDE PLOT
+  df.G <- newdata[newdata$race_white==race_white.G & newdata$party==party.G & newdata$gender==gender.G,]  
+  
+  # Creating aggregated data for PLOT ###########################################
+  w.G <- aggregate(formula = as.numeric(df.G$sanders_preference)-1 ~ df.G$age,  FUN = sum)     # sanders supporters at each age
+  n.G <- aggregate(formula = as.numeric(df.G$sanders_preference) ~ df.G$age,  FUN = length)  # total voters at each age
+  
+  names(w.G)[1] <- "age"
+  names(w.G)[2] <- "preference"
+  names(n.G)[1] <- "age"
+  names(n.G)[2] <- "preference"
+  
+  w.n.G <- data.frame(age = w.G$age, n=n.G$preference, w=w.G$preference, 
+                    ratio = round(w.G$preference/n.G$preference,4)) 
 
-w.n.L <- data.frame(age = w.L$age, n=n.L$preference, w=w.L$preference, 
-                  ratio = round(w.L$preference/n.L$preference,4)) 
+  # PLOT ###############################################################################
 
-# Creating aggregated data for LEFT PLOT ###########################################
-w.R <- aggregate(formula = as.numeric(df.R$sanders_preference)-1 ~ df.R$age,  FUN = sum)     # sanders supporters at each age
-n.R <- aggregate(formula = as.numeric(df.R$sanders_preference) ~ df.R$age,  FUN = length)  # total voters at each age
-
-names(w.R)[1] <- "age"
-names(w.R)[2] <- "preference"
-names(n.R)[1] <- "age"
-names(n.R)[2] <- "preference"
-
-w.n.R <- data.frame(age = w.R$age, n=n.R$preference, w=w.R$preference, 
-                  ratio = round(w.R$preference/n.R$preference,4)) 
-
+  # Plot data points
+  symbols(x = w.G$age, y = w.G$preference/n.G$preference, circles = sqrt(n.G$preference), inches = 0.1,
+          xlab = "age", ylab = "Estimated probability", xlim = c(15,100),
+          panel.first = grid(col = "gray", lty = "dotted"),
+          main = paste("race:", race_white.G," party:", party.G, ", gender:", gender.G))
+  
+  # Plot model fit
+  curve(expr = predict(object = logit.mod.full, 
+                       newdata = data.frame(age = x, race_white = race_white.G, party=party.G, gender=gender.G), 
+                       type = "response"),
+        col = "red", add = TRUE, xlim = c(15,100), ylim=c(0,1),
+        xlab = "age", ylab = expression(hat(pi)))
+  
+  # Plot C.I. bands
+  curve(expr = wald.ci.pi(newdata = data.frame(age = x, race_white = race_white.G, party=party.G, gender=gender.G), 
+                          mod.fit.obj = logit.mod.full, alpha = 0.05)$lower,
+        col = "blue", lty= "dotdash", add = TRUE, xlim = c(15,100))
+  
+  curve(expr = wald.ci.pi(newdata = data.frame(age = x, race_white = race_white.G, party=party.G, gender=gender.G), 
+                          mod.fit.obj = logit.mod.full, alpha = 0.05)$upper,
+        col = "blue", lty= "dotdash", add = TRUE, xlim = c(15,100))
+  
+  legend(x=15, y=0.3, legend = c("model", "95% C.I."),
+                                 lty = c("solid", "dotdash"), col = c("red", "blue"), bty = "n")
+}
 ```
 
+## Plots comparing subgroups
+
+### Example: white male, different parties
 
 ```{r}
+# White Male - Democratic
+plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Race= "1", Party= "D", Gender = "2")
 
-#par(mfrow = c(1,2))
+# White Male - Independent
+plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Race= "1", Party= "I", Gender = "2")
 
-# LEFT SIDE PLOT ###############################################################################
-
-# Plot data points
-symbols(x = w.L$age, y = w.L$preference/n.L$preference, circles = sqrt(n.L$preference), inches = 0.1,
-        xlab = "age", ylab = "Estimated probability", xlim = c(15,100),
-        panel.first = grid(col = "gray", lty = "dotted"),
-        main = paste("race:", race_white.L," party:", party.L, ", gender:", gender.L))
-
-# Plot model fit
-curve(expr = predict(object = logit.mod.full, 
-                     newdata = data.frame(age = x, race_white = race_white.L, party=party.L, gender=gender.L), 
-                     type = "response"),
-      col = "red", add = TRUE, xlim = c(15,100), ylim=c(0,1),
-      xlab = "age", ylab = expression(hat(pi)))
-
-# Plot C.I. bands
-curve(expr = wald.ci.pi(newdata = data.frame(age = x, race_white = race_white.L, party=party.L, gender=gender.L), 
-                        mod.fit.obj = logit.mod.full, alpha = 0.05)$lower,
-      col = "blue", lty= "dotdash", add = TRUE, xlim = c(15,100))
-
-curve(expr = wald.ci.pi(newdata = data.frame(age = x, race_white = race_white.L, party=party.L, gender=gender.L), 
-                        mod.fit.obj = logit.mod.full, alpha = 0.05)$upper,
-      col = "blue", lty= "dotdash", add = TRUE, xlim = c(15,100))
-
-# Legend
-# legend(x = 20, y = 0.2, legend = c("Full model", "95% individual C.I."),
-#                                lty = c("solid", "dotdash"), col = c("red", "blue"), bty = "n")
-
-legend("topright", legend = c("Full model", "95% individual C.I."),
-                               lty = c("solid", "dotdash"), col = c("red", "blue"), bty = "n")
-
-# RIGHT SIDE PLOT ###############################################################################
-
-# Plot data points
-symbols(x = w.R$age, y = w.R$preference/n.R$preference, circles = sqrt(n.R$preference), inches = 0.1,
-        xlab = "age", ylab = "Estimated probability", xlim = c(15,100),
-        panel.first = grid(col = "gray", lty = "dotted"),
-        main = paste("race:", race_white.R," party:", party.R, ", gender:", gender.R))
-
-# Plot model fit
-curve(expr = predict(object = logit.mod.full, 
-                     newdata = data.frame(age = x, race_white = race_white.R, party=party.R, gender=gender.R), type = "response"),
-      col = "red", add = TRUE, xlim = c(15,100), ylim=c(0,1),
-      xlab = "age", ylab =expression(hat(pi)))
-
-# Plot C.I. bands
-curve(expr = wald.ci.pi(newdata = data.frame(age = x, race_white =race_white.R, party=party.R, gender=gender.R), 
-                        mod.fit.obj = logit.mod.full, alpha = 0.05)$lower,
-      col = "blue", lty= "dotdash", add = TRUE, xlim = c(15,100))
-
-curve(expr = wald.ci.pi(newdata = data.frame(age = x, race_white =race_white.R, party=party.R, gender=gender.R), 
-                        mod.fit.obj = logit.mod.full, alpha = 0.05)$upper,
-      col = "blue", lty= "dotdash", add = TRUE, xlim = c(15,100))
-
-# Legend
-# legend(x = 20, y = 0.2, legend = c("Full model", "95% individual C.I."),
-#                                lty = c("solid", "dotdash"), col = c("red", "blue"), bty = "n")
-
-legend("topright", legend = c("Full model", "95% individual C.I."),
-                               lty = c("solid", "dotdash"), col = c("red", "blue"), bty = "n")
+# White Male - Republican
+plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Race= "1", Party= "R", Gender = "2")
 ```
+### Example: male Republican, white vs. non-white
+
+```{r}
+plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Race= "1", Party= "R", Gender = "1")
+
+plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Race= "0", Party= "R", Gender = "1")
+```
+### Example: non-white Democratic, male vs. female
+
+```{r}
+plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Race= "0", Party= "R", Gender = "1")
+
+plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Race= "0", Party= "R", Gender = "2")
+```
+
+
+
+
+
 
