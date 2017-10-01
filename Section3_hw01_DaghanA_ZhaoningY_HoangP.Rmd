@@ -6,7 +6,7 @@ output:
   pdf_document: default
   html_notebook: default
 ---
-```{r setup, warning=FALSE, echo=FALSE}
+```{r setup, warning=FALSE}
 knitr::opts_chunk$set(cache=TRUE)
 library(knitr)
 opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
@@ -67,17 +67,12 @@ dt$party <- factor(x = dt$party, levels = c("1","2","3"), labels = c("D", "I", "
 dt$race_white <- as.factor(dt$race_white)
 dt$gender <- as.factor(dt$gender)
 dt$age <- 2015 - dt$birthyr
-dim(dt)
-head(dt)
 ```   
 * We are going to remove the 9 observations without the **sanders_preference** value. A possible way to impute these **NA** values could be to use a logistic regression but for this work, we'll simply opt to remove these observations (9 out of 1200 observations is less than 1% of the data), especially given that the other values for each observation are close to the mean of their respective columns. A table of the NA observations are detailed below:
 
 ```{r}
-
-## Hoang to add table
 dt_missing = dt[is.na(sanders_preference)]
 dt_notmissing = dt[!is.na(sanders_preference)]
-
 table = data.table(Data = c("NA's", "Remaining Data"),
            PartyDem = c(round(nrow(dt_missing[party=='D'])/nrow(dt_missing),2),
                         round(nrow(dt_notmissing[party=='D'])/nrow(dt_notmissing),2)),
@@ -94,7 +89,7 @@ table = data.table(Data = c("NA's", "Remaining Data"),
 table
 dt <- dt[!is.na(dt$sanders_preference),]
 ```
-We observe that 8 out of 9 NAs are female. This requires a careful review. Even if they all preferred Bernie Sanders, it doens't make a big difference in the overall rations. Furthermore, our analysis (below) show that gender is not a meaningful factor for our final model. All other variables deviate very little between the NAs subset and the rest of the data. We justify our decision to remove NA data based on these observations. 
+We observe that 8 out of 9 NAs are female and this could be problematic. However, given that gender is not a meaningful explonatory variable for preference_bernie and the relatively low number of data points with missing values (9 out of 1200), and that all other variables deviate very little between the NAs subset and the rest of the data, we can justify our decision to remove NA subset from the original dataset. 
  
 # Explotary Data Analysis
 ##Univariate analysis    
@@ -200,12 +195,12 @@ c.table <- array(data = as.array(c.tabs),
       dim = c(3,4),
       dimnames = list(Preference = c("Hillary", "Bernie", "Total"), 
                       Party = c("Democratic", "Independent", "Republican", "Total")))
-
 round(c.table, 2)
 round(c.table / dim(dt)[1], 2)
-
+chisq.test(c.tabs)
 ```
-We have further proof that Bernie is popular with the wrong group (i.e, Independents and Republicans), which is a point we touched on the univariate analysis section for the preference variable. While he enjoys roughly 2x the popularity of Hillary Clinton among the Independents and Republicans, he is less popular among the Democrats. **Our intuition is to include Independents to the target audience** as their lack of enthousiasm for the Democratic party may be offset by their support for Bernie.
+We have further proof that Bernie is popular with the wrong group (i.e, Independents and Republicans), which is a point we touched on the univariate analysis section for the preference variable. While he enjoys roughly 2x the popularity of Hillary Clinton among the Independents and Republicans, he is less popular among the Democrats.
+Our intution to include party affiliation as an explanatory variable is backed by the Chi-Square independence test. Witht the p-value close to ), **we can accept the alternative hypothesis that party and preference_bernie** are dependent. 
 
 ## preference vs. race_white
 ```{r}
@@ -216,13 +211,13 @@ c.tabs <- cbind(c.tabs,rowSums(c.tabs))
 c.table <- array(data = as.array(c.tabs),
       dim = c(3,3),
       dimnames = list(Preference = c("Hillary", "Bernie", "Total"), 
-                      Race = c("Whites", "Non Whites", "Total")))
+                      Race = c("Non whites", "Whites", "Total")))
 
 round(c.table, 2)
 round(c.table / dim(dt)[1], 2)
+chisq.test(c.tabs)
 ```
-Bernie enjoys 4 times more support from Non White voters than White voters. This is definitely a strong signal for our model, so **we will explore adding race as a dependent variable to our model.**
-
+Bernie enjoys 4 times more support from White voters than Non-White voters. This is definitely a strong signal for our model, not to mention the very very low p-value for the Chi-square independence test, so there is strong empirical evidence to accept the alternative hypothesis that race and bernie_preference are not independent.  **We will add race as a dependent variable to our model.**
 
 ## preference vs. gender
 
@@ -231,9 +226,9 @@ t <- table(dt[,.(Gender = ifelse(gender==1,"Female","Male"), Preference = ifelse
 t
 
 round(t/sum(t),2)
+chisq.test(t)
 ```
-Both males and females are more likely to prefer Sanders. $P(prefers\_sanders | female ) = \frac{0.27}{0.47} = 0.58$ and $P(prefers\_sanders | male ) = \frac{0.30}{0.52} = 0.58$. So **there doesn't seem to be a strong direct relationship between preference for Bernie Sanders and gender.** We'll revisit the gender variable as part of our interaction analysis. 
-
+Both males and females are more likely to prefer Sanders. $P(prefers\_sanders | female ) = \frac{0.27}{0.47} = 0.58$ and $P(prefers\_sanders | male ) = \frac{0.30}{0.52} = 0.58$. Our intuition is further back by the very high p-value for indepence test. We can't reject the null hypothesis that the gender and preference_sanders are independent. **So we will not include gender in our model.**
 
 ## Preference vs. age
 ```{r}
@@ -291,7 +286,7 @@ Non-white people prefer Bernie to Hillary Clinton ($\frac{\hat\pi_{Bernie|non\_w
 ggplot(dt, aes(x = interaction(race_white, sanders_preference), y = age)) + geom_boxplot()
 ```    
 
-Non-white voters who prefer Bernie are the youngest group (based on their 1st, 3rd quartile and mean age). **We'll explore the interaction between age and race during our model exploration.**
+Non-white voters who prefer Bernie arex the youngest group (based on their 1st, 3rd quartile and mean age). **We'll explore the interaction between age and race during our model exploration.**
 
 ## preference ~ age & party
 
