@@ -34,7 +34,7 @@ if (dir.exists("/Users/daghanaltas/Hacking/Berkeley/W271/Labs/w271_lab1/")) {
 } else if (dir.exists("/Users/daghan/Hacking/Berkeley/W271/Labs/w271_lab1/")) {
   setwd("/Users/daghan/Hacking/Berkeley/W271/Labs/w271_lab1/")
 } else {
-  print("add yor local directory path here")
+  setwd("~/Desktop/w271/Lab1")
 }
  
 df <- read.csv("./public_opinion.csv")
@@ -390,17 +390,17 @@ $\mathbf {logit(\pi_{preference\_sanders}) = \beta_0 + \beta_1 age + \beta_2 par
 
 # Probability Plots
 
-#### the base model (FOR TESTING PLOTS)
+#### the base model (for plotting all observations)
 
 ```{r}
 logit.mod.base <- glm(formula = sanders_preference ~ age, 
                family = binomial(link = logit), data = dt )
 ```
 
-#### the full model (FOR TESTING PLOTS)
+#### the full model (for plotting subgroups)
 
 ```{r}
-logit.mod.full <- glm(formula = sanders_preference ~ age + race_white + party + gender + age:party, 
+logit.mod.full <- glm(formula = sanders_preference ~ age + party + race_white, 
                family = binomial(link = logit), data = dt )
 ```
 
@@ -416,10 +416,6 @@ wald.ci.pi <- function(newdata, mod.fit.obj, alpha){
   CI.pi.upper <- exp(CI.lin.pred.upper)/(1+exp(CI.lin.pred.upper))
   list(lower = CI.pi.lower, upper = CI.pi.upper)
 }
-
-# test case for logit.mod.1 at age = 50
-# wald.ci.pi(newdata = data.frame(age = 50), mod.fit.obj = logit.mod.1, alpha = 0.05)
-
 ```
 
 ## Bubble plot of the base model for all observations
@@ -442,7 +438,7 @@ w.n <- data.frame(age = w$age, n=n$preference, w=w$preference,
 # head(w.n)  # ratio = (sanders_supporters/total number of voters)
 ```
 
-The estimated logistic model with the 95% Wald confidence intervals for the base model $sanders_preference = \beta_0 + \beta_1 age$, the bubble plot also shows the observed ratio of voters who prefer Sanders at each age, with the plotting size being proportional to the number of observations at that age.   
+The estimated logistic model with the 95% Wald confidence intervals for the base model $\mathbf {logit(\pi_{preference\_sanders}) = \beta_0 + \beta_1 age }$, the bubble plot also shows the observed ratio of voters who prefer Sanders at each age, with the plotting size being proportional to the number of observations at that age.   
 
 ```{r}
 
@@ -466,30 +462,45 @@ curve(expr = wald.ci.pi(newdata = data.frame(age = x),
       col = "blue", lty= "dotdash", add = TRUE, xlim = c(15,95))
 
 # Legend
-legend(x = 20, y = 0.2, legend = c("Base model", "95% individual C.I."),
+legend(x = 15, y = 0.25, legend = c("Base model", "95% individual C.I."),
                                lty = c("solid", "dotdash"), col = c("red", "red"), bty = "n")
 ```
+
+The base model shows the preference for Sanders declines as the voter age increases. 
 
 ## Comparing different voter groups using the full model
 
 For comparing different groups of voters using the full model, we will plot the observed data points for the subgroup of voters each model represents with the estimated probability and 95% confidence intervals.
 
+Since our model is $\mathbf {logit(\pi_{preference\_sanders}) = \beta_0 + \beta_1 age + \beta_2 partyI + \beta_3 partyR + \beta_4 race\_white}$, the *gender* factor has been excluded in our model, we will only include *party* and *race_white* in the subgroup plotting function.
+
 #### Define function plotsubgroup.pi.ci() for subgroup probability plot
 
 ```{r}
-plotsugroup.pi.ci <- function(newdata, mod.fit.obj, Race, Party, Gender){
+plotsugroup.pi.ci <- function(newdata, mod.fit.obj, Party, Race){
 
-  race_white.G = Race
   party.G = Party
-  gender.G = Gender
+  race_white.G = Race
   
-  # Creating subgroup data frames for the LEFT and RIGHT SIDE PLOT
-  dt.G <- newdata[newdata$race_white==race_white.G & newdata$party==party.G & newdata$gender==gender.G,]  
+  # Strings for plot title
+  if (Race == "1") {raceStr = "white"} 
+  else if (Race == "0") {raceStr = "non-white"}
+  else { raceStr = " "}
   
-  # Creating aggregated data for PLOT ###########################################
-  w.G <- aggregate(formula = as.numeric(dt.G$sanders_preference)-1 ~ dt.G$age,  FUN = sum)     # sanders supporters at each age
-  n.G <- aggregate(formula = as.numeric(dt.G$sanders_preference) ~ dt.G$age,  FUN = length)  # total voters at each age
+  if (Party == "D") {partyStr = "Democratic"} 
+  else if (Party == "I") {partyStr = "Independent"}
+  else if (Party == "R") {partyStr = "Republican"}
+  else { partyStr = " "}
   
+  
+  # Creating subgroup data frame for the specified party and race 
+  dt.G <- newdata[newdata$race_white==race_white.G & newdata$party==party.G,]  
+  
+  # Creating aggregated data for plotting observations ####################################
+  w.G <- aggregate(formula = as.numeric(dt.G$sanders_preference)-1 ~ dt.G$age,  FUN = sum)     # sanders supporters for each age
+  n.G <- aggregate(formula = as.numeric(dt.G$sanders_preference) ~ dt.G$age,  FUN = length)    # total voters for each age
+  
+  # change to easy to understand column names 
   names(w.G)[1] <- "age"
   names(w.G)[2] <- "preference"
   names(n.G)[1] <- "age"
@@ -504,60 +515,55 @@ plotsugroup.pi.ci <- function(newdata, mod.fit.obj, Race, Party, Gender){
   symbols(x = w.G$age, y = w.G$preference/n.G$preference, circles = sqrt(n.G$preference), inches = 0.1,
           xlab = "age", ylab = "Estimated probability", xlim = c(15,100),
           panel.first = grid(col = "gray", lty = "dotted"),
-          main = paste("race:", race_white.G," party:", party.G, ", gender:", gender.G))
+          main = paste(partyStr, ":", raceStr))
   
   # Plot model fit
   curve(expr = predict(object = logit.mod.full, 
-                       newdata = data.frame(age = x, race_white = race_white.G, party=party.G, gender=gender.G), 
+                       newdata = data.frame(age = x, party=party.G, race_white = race_white.G), 
                        type = "response"),
         col = "red", add = TRUE, xlim = c(15,100), ylim=c(0,1),
         xlab = "age", ylab = expression(hat(pi)))
   
   # Plot C.I. bands
-  curve(expr = wald.ci.pi(newdata = data.frame(age = x, race_white = race_white.G, party=party.G, gender=gender.G), 
+  curve(expr = wald.ci.pi(newdata = data.frame(age = x, party=party.G, race_white = race_white.G), 
                           mod.fit.obj = logit.mod.full, alpha = 0.05)$lower,
         col = "blue", lty= "dotdash", add = TRUE, xlim = c(15,100))
   
-  curve(expr = wald.ci.pi(newdata = data.frame(age = x, race_white = race_white.G, party=party.G, gender=gender.G), 
+  curve(expr = wald.ci.pi(newdata = data.frame(age = x, party=party.G, race_white = race_white.G), 
                           mod.fit.obj = logit.mod.full, alpha = 0.05)$upper,
         col = "blue", lty= "dotdash", add = TRUE, xlim = c(15,100))
   
-  legend(x=15, y=0.3, legend = c("model", "95% C.I."),
+  legend(x=80, y=0.95, legend = c("model", "95% C.I."),
                                  lty = c("solid", "dotdash"), col = c("red", "blue"), bty = "n")
 }
 ```
 
-## Plots comparing subgroups
+## Estimated probability for sanders_preference for different voter groups
 
-### Example: white female, different parties
-
-```{r}
-# White Male - Democratic
-plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Race= "1", Party= "D", Gender = "2")
-
-# White Male - Independent
-plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Race= "1", Party= "I", Gender = "2")
-
-# White Male - Republican
-plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Race= "1", Party= "R", Gender = "2")
-```
-### Example: male Republican, white vs. non-white
+###  White voters
 
 ```{r}
-plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Race= "1", Party= "R", Gender = "1")
+# White Democratic
+plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Party= "D", Race = "1")
 
-plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Race= "0", Party= "R", Gender = "1")
+# White Independent
+plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Party= "I", Race = "1")
+
+# White Republican
+plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Party= "R", Race = "1")
 ```
-### Example: non-white Democratic, male vs. female
+### Non-white voters
 
 ```{r}
-plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Race= "0", Party= "R", Gender = "1")
+# Non-white Democratic
+plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Party= "D", Race = "0")
 
-plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Race= "0", Party= "R", Gender = "2")
+# Non-white Independent
+plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Party= "I", Race = "0")
+
+# Non-white Republican
+plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Party= "R", Race = "0")
 ```
 
-
-
-
-
+The estimated probability plots based on our model show that the preference for Bernie Sanders was higher among the white voters than the non-white voters within each political party. In addition, Sanders enjoyed a similar level of support among the Independent and Republican voters, however, the preference for Sanders was lower among the Democratic voters compared to the Independent and Republican voters.
 
