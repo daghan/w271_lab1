@@ -385,7 +385,173 @@ None of the 3 interaction models yields a test statistic satisfactory to reject 
 
 ## Model selection conclusion
 Based on our model study, we conclude that the most appropriate model for the specific question we want to answer (*whether it is a good idea to focus on younger voters*) given the dataset is:  
+
 $\mathbf {logit(\pi_{preference\_sanders}) = \beta_0 + \beta_1 age + \beta_2 partyI + \beta_3 partyR + \beta_4 race\_white}$
+
+# Odds Ratios
+
+Based on our model, the estimated logit probability is
+
+$\mathbf {logit(\hat{\pi}_{preference\_sanders}) = -0.1340 -0.0125 age + 0.7135 partyI + 0.5942 partyR + 0.8728 race\_white}$
+
+
+### Odds Ratio for age
+
+The estimated odds ratio for age is $$\hat{OR}_{age} = exp(c\hat{\beta}_1)$$
+
+With $c=-10$, we calculate the odds ratio and 95% intervals.
+
+Odds ratio:
+```{r}
+# Odds ratio for age
+round(exp(-10*model4.H0$coefficients[2]),3)
+```
+
+95% Wald interval:
+```{r}
+# Wald interval for the age odds ratio
+beta.ci <- confint.default(object = model4.H0, parm = "age", level = 0.95)
+round(rev(exp(-10*beta.ci)),3)
+```
+
+95% LR interval:
+```{r}
+# LR interval for the age odds ratio
+beta.ci <- confint(object = model4.H0, parm = "age", level = 0.95)
+round(rev(exp(-10*beta.ci)),3)
+```
+The Wald and LR intervals are similar. 
+
+With 95% confidence, the odds of preference for Sanders increases by an amount between 1.05 and 1.22 times for every 10-year decrease in the voter's age, holding other variables constant.
+
+### Odds Ratio for party
+
+#### Odds Ratio for partyI
+
+The estimated odds ratio for partyI is $$\hat{OR}_{partyI} = exp(\hat{\beta}_2)$$
+
+
+Odds ratio:
+```{r}
+# Odds ratio for partyI
+round(exp(1*model4.H0$coefficients[3]),3)
+```
+
+95% Wald interval:
+```{r}
+# Wald interval for the partyI odds ratio
+beta.ci <- confint.default(object = model4.H0, parm = "partyI", level = 0.95)
+round(exp(1*beta.ci),3)
+```
+
+95% LR interval:
+```{r}
+# LR interval for the partyI odds ratio
+beta.ci <- confint(object = model4.H0, parm = "partyI", level = 0.95)
+round(exp(1*beta.ci),3)
+```
+
+The Wald and LR intervals are similar. 
+
+With 95% confidence, the odds of a voter preferring Sanders are between 1.55 to 2.69 times as large when the voter is an Independent than when the voter is a Democrat, holding other variables constant.
+
+#### Odds Ratio for partyR
+
+The estimated odds ratio for partyR is $$\hat{OR}_{partyR} = exp(\hat{\beta}_3)$$
+
+
+Odds ratio:
+```{r}
+# Odds ratio for partyR
+round(exp(1*model4.H0$coefficients[4]),3)
+```
+
+95% Wald interval:
+```{r}
+# Wald interval for the partyI odds ratio
+beta.ci <- confint.default(object = model4.H0, parm = "partyR", level = 0.95)
+round(exp(1*beta.ci),3)
+```
+
+95% LR interval:
+```{r}
+# LR interval for the partyI odds ratio
+beta.ci <- confint(object = model4.H0, parm = "partyR", level = 0.95)
+round(exp(1*beta.ci),3)
+```
+
+The Wald and LR intervals are similar. 
+
+With 95% confidence, the odds of a voter preferring Sanders are between 1.32 to 2.49 times as large when the voter is a Republican than when the voter is a Democrat, holding other variables constant.
+
+#### Odds Ratio comparing Independent to Republican
+
+The estimated odds ratio comparing partyI to partyR is $$\hat{OR}_{partyI \space vs \space partyR}=exp(\hat{\beta}_2-\hat{\beta}_3)$$
+
+Odds ratio:
+
+```{r}
+beta.hat <- model4.H0$coefficients[-1]  # matches up beta indices with [i] to help avoid mistakes
+
+# Odds ratio comparing partyI to partyR
+as.numeric(round(exp(1*(beta.hat[2]-beta.hat[3])),3))
+```
+
+95% Wald interval:
+
+```{r}
+# Wald interval for partyI vs partyR
+cov.mat <- vcov(model4.H0)[2:5,2:5]
+var.I.R <- cov.mat[2,2] + cov.mat[3,3] - 2*cov.mat[3,2]
+CI.betas <- beta.hat[2] - beta.hat[3] + qnorm(p=c(0.025,0.975))*sqrt(var.I.R)
+round(exp(CI.betas),3)
+```
+
+95% LR interval:
+
+```{r}
+# LR interval for partyI vs partyR
+library(package = mcprofile)
+K <- matrix(data = c(0,0,1,-1,0), nrow = 1, ncol = 5, byrow = TRUE)
+linear.combo <- mcprofile(object = model4.H0, CM = K)
+ci.log.OR <- confint(object = linear.combo, level = 0.95, adjust = "none")
+round(exp(ci.log.OR$confint),3)
+
+```
+
+The Wald and LR intervals are similar. 
+
+With 95% confidence, the odds of a voter preferring Sanders are between 0.82 to 1.55 times as large when the voter is an Independent than when the voter is a Republican, holding other variables constant. Because 1 is inside the interval, there is insufficient evidence to indicate the preference for Sanders is different for Independent voters compared to Republicant voters.
+
+### Odds Ratio for race_white
+
+The estimated odds ratio for race_white is $$\hat{OR}_{race_white} = exp(\hat{\beta}_4)$$
+
+Odds ratio:
+
+```{r}
+# Odds ratio for race_white
+round(exp(1*model4.H0$coefficients[5]),3)
+```
+
+95% Wald interval:
+
+```{r}
+# Wald interval for the race_white odds ratio
+beta.ci <- confint.default(object = model4.H0, parm = "race_white1", level = 0.95)
+round(exp(1*beta.ci),3)
+```
+
+95% LR interval:
+
+```{r}
+# LR interval for the race_white odds ratio
+beta.ci <- confint(object = model4.H0, parm = "race_white1", level = 0.95)
+round(exp(1*beta.ci),3)
+```
+The Wald and LR intervals are similar. 
+
+With 95% confidence, the odds of a voter preferring Sanders are between 1.81 to 3.16 times as large when the voter is white than when the voter is non-white, holding other variables constant.
 
 
 # Probability Plots
@@ -442,7 +608,7 @@ The estimated logistic model with the 95% Wald confidence intervals for the base
 
 ```{r}
 
-par(mfrow = c(1,1))
+#par(mfrow = c(1,1))
 # Plot data points ###############################################################################
 symbols(x = w$age, y = w$preference/n$preference, circles = sqrt(n$preference), inches = 0.12,
         xlab = "age", ylab = "Estimated probability", xlim = c(15,100),
@@ -463,7 +629,7 @@ curve(expr = wald.ci.pi(newdata = data.frame(age = x),
 
 # Legend
 legend(x = 15, y = 0.25, legend = c("Base model", "95% individual C.I."),
-                               lty = c("solid", "dotdash"), col = c("red", "red"), bty = "n")
+                               lty = c("solid", "dotdash"), col = c("red", "blue"), bty = "n")
 ```
 
 The base model shows the preference for Sanders declines as the voter age increases. 
@@ -477,7 +643,7 @@ Since our model is $\mathbf {logit(\pi_{preference\_sanders}) = \beta_0 + \beta_
 #### Define function plotsubgroup.pi.ci() for subgroup probability plot
 
 ```{r}
-plotsugroup.pi.ci <- function(newdata, mod.fit.obj, Party, Race){
+plotsubgroup.pi.ci <- function(newdata, mod.fit.obj, Party, Race){
 
   party.G = Party
   race_white.G = Race
@@ -512,7 +678,7 @@ plotsugroup.pi.ci <- function(newdata, mod.fit.obj, Party, Race){
   # PLOT ###############################################################################
 
   # Plot data points
-  symbols(x = w.G$age, y = w.G$preference/n.G$preference, circles = sqrt(n.G$preference), inches = 0.1,
+  symbols(x = w.G$age, y = w.G$preference/n.G$preference, circles = sqrt(n.G$preference), inches = 0.05,
           xlab = "age", ylab = "Estimated probability", xlim = c(15,100),
           panel.first = grid(col = "gray", lty = "dotted"),
           main = paste(partyStr, ":", raceStr))
@@ -533,36 +699,34 @@ plotsugroup.pi.ci <- function(newdata, mod.fit.obj, Party, Race){
                           mod.fit.obj = logit.mod.full, alpha = 0.05)$upper,
         col = "blue", lty= "dotdash", add = TRUE, xlim = c(15,100))
   
-  legend(x=80, y=0.95, legend = c("model", "95% C.I."),
+  legend(x=55, y=1.0, legend = c("model", "95% C.I."),
                                  lty = c("solid", "dotdash"), col = c("red", "blue"), bty = "n")
 }
 ```
 
-## Estimated probability for sanders_preference for different voter groups
-
-###  White voters
+## Estimated probability of preferring sanders vs observations for different voter groups
 
 ```{r}
+# layout(matrix(c(1,4,2,5,3,6), 3, 2, byrow = TRUE))
+# layout(matrix(c(1,2,3,4,5,6), 2, 3, byrow = TRUE))
+
+par(mfrow = c(1,2))
 # White Democratic
-plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Party= "D", Race = "1")
-
-# White Independent
-plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Party= "I", Race = "1")
-
-# White Republican
-plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Party= "R", Race = "1")
-```
-### Non-white voters
-
-```{r}
+plotsubgroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Party= "D", Race = "1")
 # Non-white Democratic
-plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Party= "D", Race = "0")
+plotsubgroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Party= "D", Race = "0")
 
+par(mfrow = c(1,2))
+# White Independent
+plotsubgroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Party= "I", Race = "1")
 # Non-white Independent
-plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Party= "I", Race = "0")
+plotsubgroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Party= "I", Race = "0")
 
+par(mfrow = c(1,2))
+# White Republican
+plotsubgroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Party= "R", Race = "1")
 # Non-white Republican
-plotsugroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Party= "R", Race = "0")
+plotsubgroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Party= "R", Race = "0")
 ```
 
 The estimated probability plots based on our model show that the preference for Bernie Sanders was higher among the white voters than the non-white voters within each political party. In addition, Sanders enjoyed a similar level of support among the Independent and Republican voters, however, the preference for Sanders was lower among the Democratic voters compared to the Independent and Republican voters.
