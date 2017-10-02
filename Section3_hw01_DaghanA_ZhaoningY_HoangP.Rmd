@@ -65,7 +65,7 @@ dim(dt)
 dt$sanders_preference <- as.factor(dt$sanders_preference)
 dt$party <- factor(x = dt$party, levels = c("1","2","3"), labels = c("D", "I", "R"))
 dt$race_white <- as.factor(dt$race_white)
-dt$gender <- as.factor(dt$gender)
+dt$gender <- factor(x = dt$gender, levels = c("1","2"), labels = c("M", "F"))
 dt$age <- 2015 - dt$birthyr
 ```   
 * We are going to remove the 9 observations without the **sanders_preference** value. A possible way to impute these **NA** values could be to use a logistic regression but for this work, we'll simply opt to remove these observations (9 out of 1200 observations is less than 1% of the data), especially given that the other values for each observation are close to the mean of their respective columns. A table of the NA observations are detailed below:
@@ -82,14 +82,14 @@ table = data.table(Data = c("NA's", "Remaining Data"),
                         round(nrow(dt_notmissing[party=='R'])/nrow(dt_notmissing),2)),
            Race_white = c(round(nrow(dt_missing[race_white==1])/nrow(dt_missing),2),
                           round(nrow(dt_notmissing[race_white==1])/nrow(dt_notmissing),2)),
-           GenderFemale = c(round(nrow(dt_missing[gender==2])/nrow(dt_missing),2),
-                            round(nrow(dt_notmissing[gender==2])/nrow(dt_notmissing),2)),
+           GenderFemale = c(round(nrow(dt_missing[gender=="F"])/nrow(dt_missing),2),
+                            round(nrow(dt_notmissing[gender=="F"])/nrow(dt_notmissing),2)),
            MeanAge = c(round(dt_missing[,mean(age)],2),
                        round(dt_notmissing[,mean(age)],2)))
 table
 dt <- dt[!is.na(dt$sanders_preference),]
 ```
-We observe that 8 out of 9 NAs are female and this could be problematic. However, given that gender is not a meaningful explonatory variable for preference_bernie and the relatively low number of data points with missing values (9 out of 1200), and that all other variables deviate very little between the NAs subset and the rest of the data, we can justify our decision to remove NA subset from the original dataset. 
+We observe that 8 out of 9 NAs are female and this could be problematic. However, i) given that gender is not a meaningful explonatory variable for preference_bernie (see relevant section below in univariate analysis) and ii) the relatively low number of data points with missing values (9 out of 1200), and iii) that all other variables deviate very little between the NAs subset and the rest of the data, we can justify our decision to remove NA subset from the original dataset. 
  
 # Explotary Data Analysis
 ##Univariate analysis    
@@ -146,12 +146,12 @@ The 73% white / non-white ratio is inline with the overall US population (accord
 
 ### Gender
 ```{r}
-c.table <- array(data = c( sum(dt$gender == 1), 
-                           sum(dt$gender == 1)/length(dt$gender),
-                           sum(dt$gender == 2), 
-                           sum(dt$gender == 2)/length(dt$gender), 
-                           sum((dt$gender == 1) | (dt$gender == 2)), 
-                           sum((dt$gender == 1) | (dt$gender == 2)) /length(dt$gender)),
+c.table <- array(data = c( sum(dt$gender == "M"), 
+                           sum(dt$gender == "M")/length(dt$gender),
+                           sum(dt$gender == "F"), 
+                           sum(dt$gender == "F")/length(dt$gender), 
+                           sum((dt$gender == "M") | (dt$gender == "F")), 
+                           sum((dt$gender == "M") | (dt$gender == "F")) /length(dt$gender)),
                  dim = c(2,3),
                  dimnames = list(Count = c("Voter Count", "pi.hat"), 
                                  Gender = c("Male", "Female", "Total")))
@@ -180,10 +180,6 @@ At this section, we are going to focus on the relationship between the outcome (
 * preference vs. party
 * preference vs. race
 * preference vs. gender
-* age vs. party
-* age vs. race
-* age vs. gender
-
 
 ## preference vs. party
 ```{r}
@@ -200,7 +196,7 @@ round(c.table / dim(dt)[1], 2)
 chisq.test(c.tabs)
 ```
 We have further proof that Bernie is popular with the wrong group (i.e, Independents and Republicans), which is a point we touched on the univariate analysis section for the preference variable. While he enjoys roughly 2x the popularity of Hillary Clinton among the Independents and Republicans, he is less popular among the Democrats.
-Our intution to include party affiliation as an explanatory variable is backed by the Chi-Square independence test. Witht the p-value close to ), **we can accept the alternative hypothesis that party and preference_bernie** are dependent. 
+Our intution to include party affiliation as an explanatory variable is backed by the Chi-Square independence test. Witht the p-value close to 0, we can accept the alternative hypothesis that party and preference_bernie are dependent and therefore **party variable should be added to the model.**
 
 ## preference vs. race_white
 ```{r}
@@ -222,13 +218,13 @@ Bernie enjoys 4 times more support from White voters than Non-White voters. This
 ## preference vs. gender
 
 ```{r}
-t <- table(dt[,.(Gender = ifelse(gender==1,"Female","Male"), Preference = ifelse(sanders_preference==1, "Sanders", "Hillary"))])
+t <- table(dt[,.(Gender = ifelse(gender=="F","Female","Male"), Preference = ifelse(sanders_preference==1, "Sanders", "Hillary"))])
 t
 
 round(t/sum(t),2)
 chisq.test(t)
 ```
-Both males and females are more likely to prefer Sanders. $P(prefers\_sanders | female ) = \frac{0.27}{0.47} = 0.58$ and $P(prefers\_sanders | male ) = \frac{0.30}{0.52} = 0.58$. Our intuition is further back by the very high p-value for indepence test. We can't reject the null hypothesis that the gender and preference_sanders are independent. **So we will not include gender in our model.**
+Both males and females are more likely to prefer Sanders. But the ratio is nearly identical: $P(prefers\_sanders | female ) = \frac{0.27}{0.47} = 0.58$ and $P(prefers\_sanders | male ) = \frac{0.30}{0.52} = 0.58$. Our intuition is further backed by the very high p-value for indepence test. We can't reject the null hypothesis that the gender and preference_sanders are independent. **So we will not include gender in our model.**
 
 ## Preference vs. age
 ```{r}
@@ -240,52 +236,27 @@ Looking at the boxplot, it is clear that mean age for people who prefer Bernie S
 We are going to plot a frequency polygon for age conditioned on sanders_preference to have a closer look. 
 
 ```{r}
-ggplot(dt, aes(age, color = sanders_preference)) +
-  geom_freqpoly(binwidth = 3)
+ggplot(dt, aes(age, fill = sanders_preference, color = sanders_preference)) +
+  geom_density(alpha = 0.2) +
+  ggtitle("Sanders_preference for each age") +
+  theme(plot.title = element_text(lineheight = 1, face = "bold"))
+t.test(dt$age ~ dt$sanders_preference)
 ```   
 
-The frequency polygon indicates that there is a clear difference in favor of Bernie Sanders for voters below the age of 40. 
-
-```{r}
-dt$younger = as.factor(dt$age < 40)
-t <- table(dt[,.(Age = ifelse(younger==1,"Younger","Older"), Preference = ifelse(sanders_preference==1, "Sanders", "Hillary"))])
-t
-
-round(t/sum(t),2)
-```
-We confirm that $P(preference\_bernie|Younger) = \frac{0.24}{0.38} \approx 0.63$, whereas $P(preference\_bernie|Older) = \frac{0.34}{0.62} \approx 0.55$. So Bernie is more popular among the voters under the age of 40 than those 40 years or older.   
-
-
-
-## age vs. party
-```{r}
-dt[, .('Mean Age' = mean(age)), by = party] # 48:47:52 Age of Democrat:Independent:Republican
-
-ggplot(dt, aes(x = party, y = age, group = party)) + geom_boxplot()
-```
-We observe that Independents and Democrats are relatively younger than Republicans, which is another indicator that adding age in the model is a good idea. 
-
-
-## age vs. race_white
-```{r}
-
-dt[,.(age, race_white = ifelse(race_white==1, "White", "Non-white"))][, .('Mean Age' = mean(age)), by = race_white] # 50 vs 44 for race = white
-
-ggplot(dt, aes(x = race_white, y = age, group = race_white)) + geom_boxplot()
-
-```
-Non-white people prefer Bernie to Hillary Clinton ($\frac{\hat\pi_{Bernie|non\_white}}{\hat\pi_{Hillary|non\_white}}\approx4$). The boxplot provides evidence that non-white voters are younger, so that is further evidence that age will be a strong candidate as an explanatory variable in our model.
-
+The frequency polygon indicates that there is a clear difference in favor of Bernie Sanders for voters below the age of 40 and somewhat of a reverse effect for the voters above the age of 40. Also the t-test shows that there is reasonable evidence to reject to null hypothesis and accept that the mean age of voters who prefer Bernie Sanders is younger than those who prefer Hillary Clinton. **We will include age in our model**.
 
 # Interactions
 
 ## preference ~ age & gender
+```{r}
+ggplot(dt, aes(x = interaction(gender, sanders_preference), y = age)) + geom_boxplot()
+```    
+There is a mild interaction between age, gender and sanders_preference (males who prefer Sanders have the lowest mean age). We remain skeptical that there is evidence of an interaction between age and gender variables as an explanatory variable for the model. However, we'll conduct a model test in the next section.  
 
 ## preference ~ age & race_white
 ```{r}
 ggplot(dt, aes(x = interaction(race_white, sanders_preference), y = age)) + geom_boxplot()
 ```    
-
 Non-white voters who prefer Bernie arex the youngest group (based on their 1st, 3rd quartile and mean age). **We'll explore the interaction between age and race during our model exploration.**
 
 ## preference ~ age & party
@@ -303,11 +274,12 @@ Based on the exploratory data analysis, our model exploration strategy is as fol
 * Investiage that both **party** and **race_white** are meaningful explanatory variables.
 * Investigate additional interactions:
     + Interaction between age and race
-    + Interaction between age and party  
-
-Note: We are not going to investigate any interaction with gender since we have concluded that it is not a significant explanatory variable and therefore we don't expect it to have any meaningful interaction with the other explanatory variables.
+    + Interaction between age and party
+    + Interaction between party and race
+    + Interaction between age and gender
 
 ## Is gender important?
+Our exploratory analysis has indicated that there is no empirical evidence to include gender as an explanatory variable. For the sake of thoroughness, we'll conduct one final analysis.  
 
 ### Null Hypothesis
 In our null hypothesis we are going to assume that $\beta_{gender} = 0$
@@ -327,7 +299,7 @@ summary(model1.Ha)
 ```{r}
 anova(model1.H0, model1.Ha, test = "Chisq")
 ```
-There is no evidence supporting the alternative hypothesis that __gender__ is an explanatory variable given that __age__ is in the model.
+We've confirmed once again that there is no evidence supporting the alternative hypothesis that __gender__ is an explanatory variable given that __age__ is in the model.
 We fail to reject the null hypothesis that $\beta_{gender} = 0$.
 
 ## Adding race and party affiliation
@@ -351,32 +323,34 @@ anova(model3.H0, model3.Ha, test = "Chisq")
 The p-values for the **party(I|R)** and **race_white1** explanatory variales are very low. In addition, the p-value for Ha (model3.Ha) is also very low. We conclude that there is strong empirical evidence for including race and party affilition in our model. 
 
 ## Exploring models with interactions
-We are going to contruct 3 additional models to explore the interactions:  
+We are going to contruct 4 additional models to explore the interactions:  
 
 * Between race and age
 * Between party and age
 * Between party and race
+* Between gender and age
 
 ```{r}
 model4.H0  = glm(sanders_preference ~ age + party + race_white, dt, family = binomial(link="logit")) # also = H3.HA
 model4.Ha1 = glm(sanders_preference ~ age + party + race_white + age:race_white, dt, family = binomial(link="logit"))
 model4.Ha2 = glm(sanders_preference ~ age + party + race_white + age:party, dt, family = binomial(link="logit"))
 model4.Ha3 = glm(sanders_preference ~ age + party + race_white + party:race_white, dt, family = binomial(link="logit"))
-                   
-stargazer(model4.H0, model4.Ha1, model4.Ha2, model4.Ha3, type = "text", report=('vc*p'))
+model4.Ha4 = glm(sanders_preference ~ age + party + race_white + age:gender, dt, family = binomial(link="logit"))
+stargazer(model4.H0, model4.Ha1, model4.Ha2, model4.Ha3, model4.Ha4, type = "text", report=('vc*p'))
 ```
-We observe that none of the alternative models have any new explanatory variable with a low p-value. We'll confirm our findings with a pairwise anova table $H_0 vs. H_{a1}, H_0 vs. H_{a2}$, and $H_0 vs. H_{a3}$
+We observe that none of the alternative models have any new explanatory variable with a low p-value. We'll confirm our findings with a pairwise anova table $H_0 vs. H_{a1}, H_0 vs. H_{a2}, H_0 vs. H_{a3} $, and $H_0 vs. H_{a4}$
 ```{r}
 model4.1.anova <- anova(model4.H0, model4.Ha1, test = "Chisq" )
 model4.2.anova <- anova(model4.H0, model4.Ha2, test = "Chisq" )
 model4.3.anova <- anova(model4.H0, model4.Ha3, test = "Chisq" )
+model4.4.anova <- anova(model4.H0, model4.Ha4, test = "Chisq" )
 
-model4.anova.results <- data.frame(c(model4.1.anova$`Pr(>Chi)`[2],model4.2.anova$`Pr(>Chi)`[2],model4.3.anova$`Pr(>Chi)`[2]))
+model4.anova.results <- data.frame(c(model4.1.anova$`Pr(>Chi)`[2],model4.2.anova$`Pr(>Chi)`[2],model4.3.anova$`Pr(>Chi)`[2],model4.4.anova$`Pr(>Chi)`[2]))
 colnames(model4.anova.results) <- "Pr(>Chi)"
-rownames(model4.anova.results) <- c("model4.Ha1","model4.Ha2","model4.Ha3")
+rownames(model4.anova.results) <- c("model4.Ha1","model4.Ha2","model4.Ha3","model4.Ha4")
 model4.anova.results
 ```
-None of the 3 interaction models yields a test statistic satisfactory to reject the null hypothesis. **There is no emprical evidence of any interaction between age and race, age and party, and party and race.**
+None of the 4 interaction models yields a test statistic satisfactory to reject the null hypothesis. **There is no emprical evidence of any interaction between age and race, age and party, party and race, and age and gender.**
 
 ## Model selection conclusion
 Based on our model study, we conclude that the most appropriate model for the specific question we want to answer (*whether it is a good idea to focus on younger voters*) given the dataset is:  
@@ -726,3 +700,9 @@ plotsubgroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Party= "R", Race = "0
 
 The estimated probability plots based on our model show that the preference for Bernie Sanders was higher among the white voters than the non-white voters within each political party. In addition, Sanders enjoyed a similar level of support among the Independent and Republican voters, however, the preference for Sanders was lower among the Democratic voters compared to the Independent and Republican voters.
 
+# Conclusion
+Through our analysis, we have found that age is a statistically significant variable in predicting a preference for Sanders. Based on the sample, we find that 63% of voters under the age of 40 prefer Sanders, compared to 55% of voters 40 or older. In the broadest approach, this segmentation can be used for marketing purposes if the goal is to target the largest number of people.
+
+Given we are lookig to market to a specific demographic, however, it would make sense to narrow the segment of voters in order to get the most return for our investment. In addition to age, we have found that race, and party preference are also statistically significant. The odds of a voter preferring Sanders are between 1.81 and 3.16 times (95% confidence) as large when the voter is white, 1.55 to 2.69 times as large when the voter identifies as an Independent, and 1.32 to 2.49 times as large when the voter identifies as a Republican. We note that it is unlikely that a Republican voter would purchase a Democratic candidate's T-shirt, and that the preference in the data is between two Democratic candidates, thus not validating the preference for Sanders over a Republican candidate.
+
+With this additional information, we can refine our strategy to focus on younger (<40) white voters. Since we are trying to sell a product, we would recommend still targeting Democratic voters since they will likely have the highest chance of purchasing Democratic merchandise. We would also include Independents as they are between parties. In the same vein, we would recommend being cautious in targeting Republicans as they will be less likely to purchase Democratic merchandise.
