@@ -564,23 +564,23 @@ round(rev(exp(-10* beta.ci)),3)
 
 # Probability Plots (Answer 2)
 
+```{r}
 #### the base model (for plotting all observations)
 
-```{r}
 logit.mod.base <- glm(formula = sanders_preference ~ age, 
                family = binomial(link = logit), data = dt )
 ```
 
+```{r}
 #### the full model (for plotting subgroups)
 
-```{r}
 logit.mod.full <- glm(formula = sanders_preference ~ age + party + race_white, 
                family = binomial(link = logit), data = dt )
 ```
 
+```{r}
 #### function for calculating C.I.
 
-```{r}
 # Wald confidence interval
 wald.ci.pi <- function(newdata, mod.fit.obj, alpha){
   linear.pred <- predict(object = mod.fit.obj, newdata = newdata, type = "link", se = TRUE)
@@ -594,11 +594,10 @@ wald.ci.pi <- function(newdata, mod.fit.obj, alpha){
 
 ## Bubble plot of the base model for all observations
 
-### aggregate the data by age for symbols
-
 In this case, the data include all observations.
 
 ```{r}
+### aggregate the data by age for plotting observations
 w <- aggregate(formula = as.numeric(dt$sanders_preference)-1 ~ dt$age,  FUN = sum)     # sanders supporters at each age
 n <- aggregate(formula = as.numeric(dt$sanders_preference) ~ dt$age,  FUN = length)  # total voters at each age
 
@@ -612,13 +611,10 @@ w.n <- data.frame(age = w$age, n=n$preference, w=w$preference,
 # head(w.n)  # ratio = (sanders_supporters/total number of voters)
 ```
 
-The estimated logistic model with the 95% Wald confidence intervals for the base model  
-$$\mathbf {logit(\pi_{preference\_sanders}) = \beta_0 + \beta_1 age }$$ 
-the bubble plot also shows the observed ratio of voters who prefer Sanders at each age, with the plotting size being proportional to the number of observations at that age.   
+
+The estimated logistic model with the 95% Wald confidence intervals for the base model $$\mathbf {logit(\pi_{preference\_sanders}) = \beta_0 + \beta_1 age }$$ the bubble plot also shows the observed ratio of voters who prefer Sanders at each age, with the plotting size being proportional to the number of observations at that age.   
 
 ```{r}
-
-#par(mfrow = c(1,1))
 # Plot data points ###############################################################################
 symbols(x = w$age, y = w$preference/n$preference, circles = sqrt(n$preference), inches = 0.12,
         xlab = "age", ylab = "Estimated probability", xlim = c(15,100),
@@ -648,11 +644,10 @@ The base model shows the preference for Sanders declines as the voter age increa
 
 For comparing different groups of voters using the full model, we will plot the observed data points for the subgroup of voters each model represents with the estimated probability and 95% confidence intervals.
 
-Since our model is $$\mathbf {logit(\pi_{preference\_sanders}) = \beta_0 + \beta_1 age + \beta_2 partyI + \beta_3 partyR + \beta_4 race\_white}$$, the *gender* factor has been excluded in our model, we will only include *party* and *race_white* in the subgroup plotting function.
-
-#### Define function plotsubgroup.pi.ci() for subgroup probability plot
+Since our model is $$\mathbf {logit(\pi_{preference\_sanders}) = \beta_0 + \beta_1 age + \beta_2 partyI + \beta_3 partyR + \beta_4 race\_white}$$ the *gender* factor has been excluded in our model, we will only include *party* and *race_white* in the subgroup plotting function.
 
 ```{r}
+#### Define function plotsubgroup.pi.ci() for subgroup probability plot
 plotsubgroup.pi.ci <- function(newdata, mod.fit.obj, Party, Race){
 
   party.G = Party
@@ -709,8 +704,8 @@ plotsubgroup.pi.ci <- function(newdata, mod.fit.obj, Party, Race){
                           mod.fit.obj = logit.mod.full, alpha = 0.05)$upper,
         col = "blue", lty= "dotdash", add = TRUE, xlim = c(15,100))
   
-  legend(x=55, y=1.0, legend = c("model", "95% C.I."),
-                                 lty = c("solid", "dotdash"), col = c("red", "blue"), bty = "n")
+  # legend(x=55, y=1.0, legend = c("model", "95% C.I."),
+  #                                lty = c("solid", "dotdash"), col = c("red", "blue"), bty = "n")
 }
 ```
 
@@ -739,7 +734,7 @@ plotsubgroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Party= "R", Race = "1
 plotsubgroup.pi.ci(newdata=dt, mod.fit.obj=logit.mod.full, Party= "R", Race = "0")
 ```
 
-The estimated probability plots based on our model show that the preference for Bernie Sanders was higher among the white voters than the non-white voters within each political party. In addition, Sanders enjoyed a similar level of support among the Independent and Republican voters, however, the preference for Sanders was lower among the Democratic voters compared to the Independent and Republican voters.
+The estimated probability plots (the model prediction is shown in red, the 95% confidence intervals are shown by the dashed blue lines) based on our model show that the preference for Bernie Sanders was higher among the white voters than the non-white voters within each political party. In addition, Sanders enjoyed a similar level of support among the Independent and Republican voters, however, the preference for Sanders was lower among the Democratic voters compared to the Independent and Republican voters.
 
 # Conclusion (answer 3)
 Through our analysis, we have found that age is a statistically significant variable in predicting a preference for Sanders. Based on the sample, we find that 63% of voters under the age of 40 prefer Sanders, compared to 55% of voters 40 or older. In the broadest approach, this segmentation can be used for marketing purposes if the goal is to target the largest number of people.
